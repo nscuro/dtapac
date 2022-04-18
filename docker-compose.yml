@@ -20,7 +20,7 @@ services:
     restart: unless-stopped
 
   dtrack:
-    image: dependencytrack/bundled:4.4.2
+    image: dependencytrack/bundled:4.4.2@sha256:c46d6ae8575236507c81c85a32035c5067c336ffe32c100da09d878431cf2b96
     networks:
     - public
     ports:
@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
 
   opa:
-    image: openpolicyagent/opa:0.39.0-rootless
+    image: openpolicyagent/opa:0.39.0-rootless@sha256:8b799624170a413497abeb0bd49ae9b330fd317f0ad3ef9587332d5a5b760047
     command:
     - run
     - --server
@@ -49,7 +49,7 @@ services:
     restart: unless-stopped
 
   opa_bundle_server:
-    image: nginx:1.21.6-alpine
+    image: nginx:1.21.6-alpine@sha256:5a0df7fb7c8c03e4158ae9974bfbd6a15da2bdfdeded4fb694367ec812325d31
     networks:
     - opa_internal
     volumes:
