@@ -1,0 +1,7 @@
+.golangci.yml
+/bin/
+/examples/
+LICENSE
+README.md
+docker-compose.yml
+renovate.json

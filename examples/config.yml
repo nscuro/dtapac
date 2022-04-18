@@ -1,0 +1,3 @@
+dtrack-url: https://dtrack.example.com
+dtrack-apikey: changeit
+opa-url: http://localhost:8181
