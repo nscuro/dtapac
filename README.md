@@ -14,15 +14,15 @@
 
 ```rego
 analysis = res {
-	duplicatedVuln := {
-		"6795ec44-f810-47aa-a22e-5d817e52cbdc": "GHSA-36p3-wjmg-h94x",
-	}[vuln.vulnId]
-
-	res := {
-		"state": "FALSE_POSITIVE",
-		"comment": sprintf("Duplicate of %s.", [duplicatedVuln]),
-		"suppress": true,
-	}
+    duplicatedVuln := {
+        "6795ec44-f810-47aa-a22e-5d817e52cbdc": "GHSA-36p3-wjmg-h94x",
+    }[vuln.vulnId]
+    
+    res := {
+        "state": "FALSE_POSITIVE",
+        "comment": sprintf("Duplicate of %s.", [duplicatedVuln]),
+        "suppress": true,
+    }
 }
 ```
 
@@ -79,5 +79,3 @@ It's recommended that you:
   * e.g. `opa build -o mybundle.tar.gz -r $(git rev-parse HEAD) /path/to/policy`
 * Host your bundle on a service [compatible](https://www.openpolicyagent.org/docs/latest/management-bundles/#implementations) with OPA's bundle API
 * [Configure](https://www.openpolicyagent.org/docs/latest/management-bundles/#bundle-service-api) OPA to pull bundles from that service
-
-## Shortcomings
