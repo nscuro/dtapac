@@ -85,39 +85,39 @@ func (a Auditor) AuditFinding(ctx context.Context, finding model.Finding) (err e
 	return nil
 }
 
-func (a Auditor) buildAnalysisRequest(new model.FindingAnalysis, existing *dtrack.Analysis) (req dtrack.AnalysisRequest) {
+func (a Auditor) buildAnalysisRequest(analysis model.FindingAnalysis, existing *dtrack.Analysis) (req dtrack.AnalysisRequest) {
 	if existing != nil {
-		if new.State != existing.State {
-			req.State = new.State
+		if analysis.State != existing.State {
+			req.State = analysis.State
 		}
-		if new.Justification != "" && new.Justification != existing.Justification {
-			req.Justification = new.Justification
+		if analysis.Justification != "" && analysis.Justification != existing.Justification {
+			req.Justification = analysis.Justification
 		}
-		if new.Response != "" && new.Response != existing.Response {
-			req.Response = new.Response
+		if analysis.Response != "" && analysis.Response != existing.Response {
+			req.Response = analysis.Response
 		}
-		if new.Comment != "" {
+		if analysis.Comment != "" {
 			var commentExists bool
 			for _, comment := range existing.Comments {
-				if comment.Comment == new.Comment {
+				if comment.Comment == analysis.Comment {
 					commentExists = true
 					break
 				}
 			}
 			if !commentExists {
-				req.Comment = new.Comment
+				req.Comment = analysis.Comment
 			}
 		}
-		if new.Suppress != nil && *new.Suppress != existing.Suppressed {
-			req.Suppressed = new.Suppress
+		if analysis.Suppress != nil && *analysis.Suppress != existing.Suppressed {
+			req.Suppressed = analysis.Suppress
 		}
 	} else {
 		req = dtrack.AnalysisRequest{
-			State:         new.State,
-			Justification: new.Justification,
-			Response:      new.Response,
-			Comment:       new.Comment,
-			Suppressed:    new.Suppress,
+			State:         analysis.State,
+			Justification: analysis.Justification,
+			Response:      analysis.Response,
+			Comment:       analysis.Comment,
+			Suppressed:    analysis.Suppress,
 		}
 	}
 
