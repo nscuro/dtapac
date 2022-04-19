@@ -113,13 +113,13 @@ func exec(ctx context.Context, opts options) error {
 	}
 
 	// Setup policy evaluator.
-	policyEvaler, err := policy.NewEvaluator[model.Finding, model.FindingAnalysis](opts.OPAURL, opts.PolicyPackage, getSvcLogger("policyEvaler", logger))
+	policyEvaler, err := policy.NewOPAEvaluator(opts.OPAURL, opts.PolicyPackage, getSvcLogger("policyEvaler", logger))
 	if err != nil {
 		return fmt.Errorf("failed to setup policy evaluator: %w", err)
 	}
 
 	// Setup auditor.
-	auditor := audit.NewAuditor(policyEvaler, dtrackClient, getSvcLogger("auditor", logger))
+	auditor := audit.NewAuditor(policyEvaler, dtrackClient.Analysis, getSvcLogger("auditor", logger))
 
 	// Launch worker goroutines.
 	eg, egCtx := errgroup.WithContext(ctx)

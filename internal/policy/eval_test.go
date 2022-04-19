@@ -15,42 +15,42 @@ import (
 )
 
 func TestEvaluator_Evaluate(t *testing.T) {
-	opaURL, opaContainer := setupOPAContainer(t)
-	t.Cleanup(func() {
-		_ = opaContainer.Terminate(context.Background())
-	})
+	opaURL := setupOPA(t)
 
-	eval, err := NewEvaluator[string, string](opaURL, "test", zerolog.Nop())
+	eval, err := NewOPAEvaluator(opaURL, "test", zerolog.Nop())
 	require.NoError(t, err)
 
 	t.Run("Matched", func(t *testing.T) {
-		deployTestPolicy(t, opaURL, "./testdata/policy_matched.rego")
+		deployOPAPolicy(t, opaURL, "./testdata/policy_matched.rego")
 
-		result, err := eval.Eval(context.TODO(), "ping")
+		var result string
+		err := eval.Eval(context.TODO(), "ping", &result)
 		require.NoError(t, err)
 		require.Equal(t, "pong", result)
 	})
 
 	t.Run("Unmatched", func(t *testing.T) {
-		deployTestPolicy(t, opaURL, "./testdata/policy_unmatched.rego")
+		deployOPAPolicy(t, opaURL, "./testdata/policy_unmatched.rego")
 
-		result, err := eval.Eval(context.TODO(), "ping")
+		var result string
+		err := eval.Eval(context.TODO(), "ping", &result)
 		require.NoError(t, err)
 		require.Equal(t, "pong", result)
 	})
 
 	t.Run("Empty", func(t *testing.T) {
-		deployTestPolicy(t, opaURL, "./testdata/policy_empty.rego")
+		deployOPAPolicy(t, opaURL, "./testdata/policy_empty.rego")
 
-		_, err := eval.Eval(context.TODO(), "ping")
+		var result string
+		err := eval.Eval(context.TODO(), "ping", &result)
 		require.Error(t, err)
 		require.Equal(t, errNoResult, err)
 	})
 }
 
-func setupOPAContainer(t *testing.T) (string, testcontainers.Container) {
+func setupOPA(t *testing.T) string {
 	req := testcontainers.ContainerRequest{
-		Image:        "openpolicyagent/opa:0.39.0",
+		Image:        "openpolicyagent/opa:0.39.0-rootless",
 		Cmd:          []string{"run", "--server"},
 		ExposedPorts: []string{"8181/tcp"},
 		WaitingFor:   wait.ForLog("Initializing server"),
@@ -65,16 +65,20 @@ func setupOPAContainer(t *testing.T) (string, testcontainers.Container) {
 	})
 	require.NoError(t, err)
 
+	t.Cleanup(func() {
+		_ = container.Terminate(context.Background())
+	})
+
 	ip, err := container.Host(ctx)
 	require.NoError(t, err)
 
 	mappedPort, err := container.MappedPort(ctx, "8181")
 	require.NoError(t, err)
 
-	return fmt.Sprintf("http://%s:%s", ip, mappedPort.Port()), container
+	return fmt.Sprintf("http://%s:%s", ip, mappedPort.Port())
 }
 
-func deployTestPolicy(t *testing.T, opaURL, policyFile string) {
+func deployOPAPolicy(t *testing.T, opaURL, policyFile string) {
 	policyContent, err := os.ReadFile(policyFile)
 	require.NoError(t, err)
 

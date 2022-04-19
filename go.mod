@@ -4,7 +4,8 @@ go 1.18
 
 require (
 	github.com/go-chi/chi/v5 v5.0.7
-	github.com/nscuro/dtrack-client v0.5.1-0.20220417185829-79f02e5cb404
+	github.com/google/uuid v1.3.0
+	github.com/nscuro/dtrack-client v0.5.1-0.20220419162150-1579affb3830
 	github.com/peterbourgon/ff/v3 v3.1.2
 	github.com/rs/zerolog v1.26.1
 	github.com/stretchr/testify v1.7.1
@@ -28,7 +29,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect

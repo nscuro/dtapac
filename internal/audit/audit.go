@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/google/uuid"
 	"github.com/nscuro/dtrack-client"
 	"github.com/rs/zerolog"
 
@@ -15,17 +16,15 @@ import (
 
 // Auditor TODO
 type Auditor struct {
-	policyEvaler *policy.Evaluator[model.Finding, model.FindingAnalysis]
-	dtrackClient *dtrack.Client
+	policyEvaler policy.Evaluator
+	analysisSvc  dtrackAnalysisSvc
 	logger       zerolog.Logger
 }
 
-func NewAuditor(
-	policyEvaler *policy.Evaluator[model.Finding, model.FindingAnalysis],
-	dtrackClient *dtrack.Client, logger zerolog.Logger) *Auditor {
+func NewAuditor(policyEvaler policy.Evaluator, analysisSvc dtrackAnalysisSvc, logger zerolog.Logger) *Auditor {
 	return &Auditor{
 		policyEvaler: policyEvaler,
-		dtrackClient: dtrackClient,
+		analysisSvc:  analysisSvc,
 		logger:       logger,
 	}
 }
@@ -34,7 +33,8 @@ func NewAuditor(
 func (a Auditor) AuditFinding(ctx context.Context, finding model.Finding) (err error) {
 	findingLogger := a.logger.With().Object("finding", finding).Logger()
 
-	analysis, err := a.policyEvaler.Eval(ctx, finding)
+	var analysis model.FindingAnalysis
+	err = a.policyEvaler.Eval(ctx, finding, &analysis)
 	if err != nil {
 		return
 	} else if analysis == (model.FindingAnalysis{}) {
@@ -42,8 +42,12 @@ func (a Auditor) AuditFinding(ctx context.Context, finding model.Finding) (err e
 		return
 	}
 
+	// TODO: Use a named mutex to lock the component:project:vulnerability combination.
+	// It can happen that the same finding is audited concurrently, so we need a way to
+	// prevent dirty reads and redundant writes.
+
 	findingLogger.Debug().Msg("fetching existing analysis")
-	exAnalysis, err := a.dtrackClient.Analysis.Get(ctx, finding.Component.UUID, finding.Project.UUID, finding.Vulnerability.UUID)
+	exAnalysis, err := a.analysisSvc.Get(ctx, finding.Component.UUID, finding.Project.UUID, finding.Vulnerability.UUID)
 	if err != nil {
 		// Dependency-Track does not respond with a 404 when no analysis was found,
 		// but with a 200 and an empty response body instead.
@@ -55,15 +59,7 @@ func (a Auditor) AuditFinding(ctx context.Context, finding model.Finding) (err e
 		}
 	}
 
-	analysisReq := dtrack.AnalysisRequest{
-		Component:     finding.Component.UUID,
-		Project:       finding.Project.UUID,
-		Vulnerability: finding.Vulnerability.UUID,
-		State:         analysis.State,
-		Justification: analysis.Justification,
-		Response:      analysis.Response,
-		Suppressed:    analysis.Suppress,
-	}
+	var analysisReq dtrack.AnalysisRequest
 
 	// Check whether the analysis is already in the desired state.
 	// If it is, there's no need for us to submit another request.
@@ -92,16 +88,42 @@ func (a Auditor) AuditFinding(ctx context.Context, finding model.Finding) (err e
 		if analysis.Suppress != nil && *analysis.Suppress != exAnalysis.Suppressed {
 			analysisReq.Suppressed = analysis.Suppress
 		}
+
+		if analysisReq == (dtrack.AnalysisRequest{}) {
+			findingLogger.Debug().Msg("analysis is still current")
+			return
+		} else {
+			analysisReq.Component = finding.Component.UUID
+			analysisReq.Project = finding.Project.UUID
+			analysisReq.Vulnerability = finding.Vulnerability.UUID
+		}
+	} else {
+		analysisReq = dtrack.AnalysisRequest{
+			Component:     finding.Component.UUID,
+			Project:       finding.Project.UUID,
+			Vulnerability: finding.Vulnerability.UUID,
+			State:         analysis.State,
+			Justification: analysis.Justification,
+			Response:      analysis.Response,
+			Comment:       analysis.Comment,
+			Suppressed:    analysis.Suppress,
+		}
 	}
 
 	// Note: Use a context that is decoupled from ctx here!
 	// We don't want in-flight requests to be canceled.
 	findingLogger.Debug().Interface("analysis", analysisReq).Msg("submitting analysis")
-	_, err = a.dtrackClient.Analysis.Create(context.Background(), analysisReq)
+	_, err = a.analysisSvc.Create(context.Background(), analysisReq)
 	if err != nil {
 		err = fmt.Errorf("failed to create analysis: %w", err)
 		return
 	}
 
 	return nil
+}
+
+// dtrackAnalysisSvc
+type dtrackAnalysisSvc interface {
+	Get(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*dtrack.Analysis, error)
+	Create(context.Context, dtrack.AnalysisRequest) (*dtrack.Analysis, error)
 }

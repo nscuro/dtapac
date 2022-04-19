@@ -15,24 +15,29 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var policyPkgRegex = regexp.MustCompile(`^[\w.]+$`)
+var (
+	errInvalidPolicyPkg = errors.New("invalid policy package")
+	errNoResult         = errors.New("policy did not return a result")
+)
 
-var errNoResult = errors.New("policy did not return a result")
+type Evaluator interface {
+	Eval(ctx context.Context, input any, result any) error
+}
 
-type Evaluator[I any, O any] struct {
+type opaEvaluator struct {
 	httpClient *http.Client
 	policyURL  *url.URL
 	logger     zerolog.Logger
 }
 
-func NewEvaluator[I any, O any](opaURL, policyPkg string, logger zerolog.Logger) (*Evaluator[I, O], error) {
+func NewOPAEvaluator(opaURL, policyPkg string, logger zerolog.Logger) (Evaluator, error) {
 	u, err := url.ParseRequestURI(opaURL)
 	if err != nil {
 		return nil, err
 	}
 
-	if !policyPkgRegex.MatchString(policyPkg) {
-		return nil, fmt.Errorf("invalid policy package")
+	if matched, _ := regexp.MatchString(`^[\w.]+$`, policyPkg); !matched {
+		return nil, errInvalidPolicyPkg
 	}
 
 	policyURL, err := u.Parse("/v1/data/" + strings.ReplaceAll(policyPkg, ".", "/") + "/analysis")
@@ -41,7 +46,7 @@ func NewEvaluator[I any, O any](opaURL, policyPkg string, logger zerolog.Logger)
 	}
 	logger.Debug().Msgf("will use policy url %s", policyURL.String())
 
-	return &Evaluator[I, O]{
+	return &opaEvaluator{
 		httpClient: &http.Client{
 			Timeout: 5 * time.Second,
 		},
@@ -50,14 +55,14 @@ func NewEvaluator[I any, O any](opaURL, policyPkg string, logger zerolog.Logger)
 	}, nil
 }
 
-func (e Evaluator[I, O]) Eval(ctx context.Context, input I) (output O, err error) {
-	inputJSON, err := json.Marshal(policyQueryInput[I]{Input: input})
+func (oe opaEvaluator) Eval(ctx context.Context, input any, result any) (err error) {
+	inputJSON, err := json.Marshal(policyQueryInput{Input: input})
 	if err != nil {
 		err = fmt.Errorf("failed to marshal input: %w", err)
 		return
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.policyURL.String(), bytes.NewReader(inputJSON))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, oe.policyURL.String(), bytes.NewReader(inputJSON))
 	if err != nil {
 		err = fmt.Errorf("failed to create request: %w", err)
 		return
@@ -67,7 +72,7 @@ func (e Evaluator[I, O]) Eval(ctx context.Context, input I) (output O, err error
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "dtapac")
 
-	res, err := e.httpClient.Do(req)
+	res, err := oe.httpClient.Do(req)
 	if err != nil {
 		err = fmt.Errorf("failed to send request: %w", err)
 		return
@@ -79,7 +84,7 @@ func (e Evaluator[I, O]) Eval(ctx context.Context, input I) (output O, err error
 		return
 	}
 
-	var queryRes policyQueryResponse[O]
+	var queryRes policyQueryResponse
 	err = json.NewDecoder(res.Body).Decode(&queryRes)
 	if err != nil {
 		err = fmt.Errorf("failed to decode response: %w", err)
@@ -91,14 +96,19 @@ func (e Evaluator[I, O]) Eval(ctx context.Context, input I) (output O, err error
 		return
 	}
 
-	output = *queryRes.Result
+	err = json.Unmarshal(*queryRes.Result, result)
+	if err != nil {
+		err = fmt.Errorf("failed to unmarshal result: %w", err)
+		return
+	}
+
 	return
 }
 
-type policyQueryInput[I any] struct {
-	Input I `json:"input"`
+type policyQueryInput struct {
+	Input any `json:"input"`
 }
 
-type policyQueryResponse[O any] struct {
-	Result *O `json:"result"`
+type policyQueryResponse struct {
+	Result *json.RawMessage `json:"result"`
 }
