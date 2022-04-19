@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/moby/locker"
 	"github.com/nscuro/dtrack-client"
 	"github.com/rs/zerolog"
 
@@ -18,6 +19,7 @@ import (
 type Auditor struct {
 	policyEvaler policy.Evaluator
 	analysisSvc  dtrackAnalysisSvc
+	locker       *locker.Locker
 	logger       zerolog.Logger
 }
 
@@ -26,6 +28,7 @@ func NewAuditor(policyEvaler policy.Evaluator, analysisSvc dtrackAnalysisSvc, lo
 	return &Auditor{
 		policyEvaler: policyEvaler,
 		analysisSvc:  analysisSvc,
+		locker:       locker.New(),
 		logger:       logger,
 	}
 }
@@ -43,9 +46,18 @@ func (a Auditor) AuditFinding(ctx context.Context, finding model.Finding) (err e
 		return
 	}
 
-	// TODO: Use a named mutex to lock the component:project:vulnerability combination.
 	// It can happen that the same finding is audited concurrently, so we need a way to
 	// prevent dirty reads and redundant writes.
+	lockName := fmt.Sprintf("%s:%s:%s", finding.Component.UUID, finding.Project.UUID, finding.Vulnerability.UUID)
+	a.locker.Lock(lockName)
+	defer func() {
+		err := a.locker.Unlock(lockName)
+		if err != nil {
+			a.logger.Error().Err(err).
+				Str("lock", lockName).
+				Msg("failed to unlock")
+		}
+	}()
 
 	findingLogger.Debug().Msg("fetching existing analysis")
 	existingAnalysis, err := a.analysisSvc.Get(ctx, finding.Component.UUID, finding.Project.UUID, finding.Vulnerability.UUID)
