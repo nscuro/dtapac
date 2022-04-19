@@ -101,7 +101,7 @@ func exec(ctx context.Context, opts options) error {
 	srvLogger := getSvcLogger("server", logger)
 	srvOptions := []server.Option{
 		server.WithLogger(srvLogger),
-		server.WithHandler(http.MethodPost, "/notification/finding", server.NewFindingHandler(findingsChan, srvLogger)),
+		server.WithHandler(http.MethodPost, "/notification/new-vulnerability", server.NewFindingHandler(findingsChan, srvLogger)),
 	}
 	if opts.OPABundle != "" {
 		logger.Debug().Str("bundle", opts.OPABundle).Msg("will listen for opa bundle status updates")
