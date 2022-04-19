@@ -21,6 +21,7 @@ type Auditor struct {
 	logger       zerolog.Logger
 }
 
+// NewAuditor TODO
 func NewAuditor(policyEvaler policy.Evaluator, analysisSvc dtrackAnalysisSvc, logger zerolog.Logger) *Auditor {
 	return &Auditor{
 		policyEvaler: policyEvaler,
@@ -47,7 +48,7 @@ func (a Auditor) AuditFinding(ctx context.Context, finding model.Finding) (err e
 	// prevent dirty reads and redundant writes.
 
 	findingLogger.Debug().Msg("fetching existing analysis")
-	exAnalysis, err := a.analysisSvc.Get(ctx, finding.Component.UUID, finding.Project.UUID, finding.Vulnerability.UUID)
+	existingAnalysis, err := a.analysisSvc.Get(ctx, finding.Component.UUID, finding.Project.UUID, finding.Vulnerability.UUID)
 	if err != nil {
 		// Dependency-Track does not respond with a 404 when no analysis was found,
 		// but with a 200 and an empty response body instead.
@@ -59,55 +60,17 @@ func (a Auditor) AuditFinding(ctx context.Context, finding model.Finding) (err e
 		}
 	}
 
-	var analysisReq dtrack.AnalysisRequest
+	analysisReq := a.buildAnalysisRequest(analysis, existingAnalysis)
 
 	// Check whether the analysis is already in the desired state.
 	// If it is, there's no need for us to submit another request.
-	if exAnalysis != nil {
-		if analysis.State != exAnalysis.State {
-			analysisReq.State = analysis.State
-		}
-		if analysis.Justification != "" && analysis.Justification != exAnalysis.Justification {
-			analysisReq.Justification = analysis.Justification
-		}
-		if analysis.Response != "" && analysis.Response != exAnalysis.Response {
-			analysisReq.Response = analysis.Response
-		}
-		if analysis.Comment != "" {
-			var commentExists bool
-			for _, comment := range exAnalysis.Comments {
-				if comment.Comment == analysis.Comment {
-					commentExists = true
-					break
-				}
-			}
-			if !commentExists {
-				analysisReq.Comment = analysis.Comment
-			}
-		}
-		if analysis.Suppress != nil && *analysis.Suppress != exAnalysis.Suppressed {
-			analysisReq.Suppressed = analysis.Suppress
-		}
-
-		if analysisReq == (dtrack.AnalysisRequest{}) {
-			findingLogger.Debug().Msg("analysis is still current")
-			return
-		} else {
-			analysisReq.Component = finding.Component.UUID
-			analysisReq.Project = finding.Project.UUID
-			analysisReq.Vulnerability = finding.Vulnerability.UUID
-		}
+	if analysisReq == (dtrack.AnalysisRequest{}) {
+		findingLogger.Debug().Msg("analysis is still current")
+		return
 	} else {
-		analysisReq = dtrack.AnalysisRequest{
-			Component:     finding.Component.UUID,
-			Project:       finding.Project.UUID,
-			Vulnerability: finding.Vulnerability.UUID,
-			State:         analysis.State,
-			Justification: analysis.Justification,
-			Response:      analysis.Response,
-			Comment:       analysis.Comment,
-			Suppressed:    analysis.Suppress,
-		}
+		analysisReq.Component = finding.Component.UUID
+		analysisReq.Project = finding.Project.UUID
+		analysisReq.Vulnerability = finding.Vulnerability.UUID
 	}
 
 	// Note: Use a context that is decoupled from ctx here!
@@ -122,7 +85,45 @@ func (a Auditor) AuditFinding(ctx context.Context, finding model.Finding) (err e
 	return nil
 }
 
-// dtrackAnalysisSvc
+func (a Auditor) buildAnalysisRequest(new model.FindingAnalysis, existing *dtrack.Analysis) (req dtrack.AnalysisRequest) {
+	if existing != nil {
+		if new.State != existing.State {
+			req.State = new.State
+		}
+		if new.Justification != "" && new.Justification != existing.Justification {
+			req.Justification = new.Justification
+		}
+		if new.Response != "" && new.Response != existing.Response {
+			req.Response = new.Response
+		}
+		if new.Comment != "" {
+			var commentExists bool
+			for _, comment := range existing.Comments {
+				if comment.Comment == new.Comment {
+					commentExists = true
+					break
+				}
+			}
+			if !commentExists {
+				req.Comment = new.Comment
+			}
+		}
+		if new.Suppress != nil && *new.Suppress != existing.Suppressed {
+			req.Suppressed = new.Suppress
+		}
+	} else {
+		req = dtrack.AnalysisRequest{
+			State:         new.State,
+			Justification: new.Justification,
+			Response:      new.Response,
+			Comment:       new.Comment,
+			Suppressed:    new.Suppress,
+		}
+	}
+
+	return
+}
+
 type dtrackAnalysisSvc interface {
 	Get(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*dtrack.Analysis, error)
 	Create(context.Context, dtrack.AnalysisRequest) (*dtrack.Analysis, error)
