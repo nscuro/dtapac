@@ -6,7 +6,7 @@ require (
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/google/uuid v1.3.0
 	github.com/moby/locker v1.0.1
-	github.com/nscuro/dtrack-client v0.5.1-0.20220419162150-1579affb3830
+	github.com/nscuro/dtrack-client v0.5.1-0.20220419203458-ccc30f8cbd61
 	github.com/peterbourgon/ff/v3 v3.1.2
 	github.com/rs/zerolog v1.26.1
 	github.com/stretchr/testify v1.7.1

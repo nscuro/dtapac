@@ -11,7 +11,6 @@ services:
       DTAPAC_DTRACK_APIKEY: "${DTAPAC_DTRACK_APIKEY}"
       DTAPAC_OPA_URL: "http://opa:8181"
       DTAPAC_OPA_BUNDLE: "dtapac"
-      DTAPAC_POLICY_PATH: "/v1/data/dtapac/finding/analysis"
       DTAPAC_LOG_LEVEL: "debug"
     networks:
     - public

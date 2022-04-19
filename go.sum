@@ -481,8 +481,8 @@ github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f/go.mod h1:ZdcZmHo+
 github.com/ncw/swift v1.0.47/go.mod h1:23YIA4yWVnGwv2dQlN4bB7egfYX6YLn0Yo/S6zZO/ZM=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWbfPhv4DMiApHyliiK5xCTNVSPiaAs=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
-github.com/nscuro/dtrack-client v0.5.1-0.20220419162150-1579affb3830 h1:5nhZsGWMFZWJXIhTf2gwpURjPPEsHGTH+IqKbzGgsj8=
-github.com/nscuro/dtrack-client v0.5.1-0.20220419162150-1579affb3830/go.mod h1:1u4zogM8r+Kx0uZCTsgdrefi/iIMyldz12DeD0C2RMg=
+github.com/nscuro/dtrack-client v0.5.1-0.20220419203458-ccc30f8cbd61 h1:IR7N4f5bvyXXfFE1e9cDYWdOJi3CxzRV0a/3s6iObfA=
+github.com/nscuro/dtrack-client v0.5.1-0.20220419203458-ccc30f8cbd61/go.mod h1:1u4zogM8r+Kx0uZCTsgdrefi/iIMyldz12DeD0C2RMg=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/oklog/ulid v1.3.1/go.mod h1:CirwcVhetQ6Lv90oh/F+FBtV6XMibvdAFo93nm5qn4U=
 github.com/olekukonko/tablewriter v0.0.0-20170122224234-a0225b3f23b5/go.mod h1:vsDQFd/mU46D+Z4whnwzcISnGGzXWMclvtLoiIKAKIo=

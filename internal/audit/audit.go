@@ -97,43 +97,55 @@ func (a Auditor) AuditFinding(ctx context.Context, finding model.Finding) (err e
 	return nil
 }
 
-func (a Auditor) buildAnalysisRequest(analysis model.FindingAnalysis, existing *dtrack.Analysis) (req dtrack.AnalysisRequest) {
+func (a Auditor) buildAnalysisRequest(analysis model.FindingAnalysis, existing *dtrack.Analysis) dtrack.AnalysisRequest {
+	req := dtrack.AnalysisRequest{
+		State:         analysis.State,
+		Justification: analysis.Justification,
+		Response:      analysis.Response,
+		Comment:       analysis.Comment,
+		Suppressed:    analysis.Suppress,
+	}
+
 	if existing != nil {
-		if analysis.State != existing.State {
-			req.State = analysis.State
+		// Apply statuses of the existing analysis if the policy
+		// analysis doesn't set them already. If we don't do this,
+		// we'll be overriding them to NOT_SET in Dependency-Track.
+		if req.State == "" && existing.State != "" {
+			req.State = existing.State
 		}
-		if analysis.Justification != "" && analysis.Justification != existing.Justification {
-			req.Justification = analysis.Justification
+		if req.Justification == "" && existing.Justification != "" {
+			req.Justification = existing.Justification
 		}
-		if analysis.Response != "" && analysis.Response != existing.Response {
-			req.Response = analysis.Response
+		if req.Response == "" && existing.Response != "" {
+			req.Response = existing.Response
 		}
-		if analysis.Comment != "" {
-			var commentExists bool
+
+		// Prevent redundant comments.
+		if req.Comment != "" {
+			commentExists := false
 			for _, comment := range existing.Comments {
-				if comment.Comment == analysis.Comment {
+				if comment.Comment == req.Comment {
 					commentExists = true
 					break
 				}
 			}
-			if !commentExists {
-				req.Comment = analysis.Comment
+			if commentExists {
+				req.Comment = ""
 			}
 		}
-		if analysis.Suppress != nil && *analysis.Suppress != existing.Suppressed {
-			req.Suppressed = analysis.Suppress
-		}
-	} else {
-		req = dtrack.AnalysisRequest{
-			State:         analysis.State,
-			Justification: analysis.Justification,
-			Response:      analysis.Response,
-			Comment:       analysis.Comment,
-			Suppressed:    analysis.Suppress,
+
+		// Let's see... did anything change at all?
+		if req.State == existing.State &&
+			req.Justification == existing.Justification &&
+			req.Response == existing.Response &&
+			req.Comment == "" &&
+			(req.Suppressed == nil || *req.Suppressed == existing.Suppressed) {
+			// Nope. Same old same old.
+			return dtrack.AnalysisRequest{}
 		}
 	}
 
-	return
+	return req
 }
 
 type dtrackAnalysisSvc interface {
