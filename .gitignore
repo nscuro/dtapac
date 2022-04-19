@@ -17,3 +17,6 @@
 
 # Examples
 /examples/bundles/*.tar.gz
+
+# Env files
+.env
