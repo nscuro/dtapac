@@ -130,9 +130,9 @@ func TestAuditor_AuditFinding(t *testing.T) {
 		require.Equal(t, finding.Project.UUID, analysisSvc.createInput.Project)
 		require.Equal(t, finding.Vulnerability.UUID, analysisSvc.createInput.Vulnerability)
 		require.Equal(t, dtrack.AnalysisStateNotAffected, analysisSvc.createInput.State)
-		require.Empty(t, analysisSvc.createInput.Justification) // Is in desired state already
-		require.Empty(t, analysisSvc.createInput.Response)      // Is in desired state already
-		require.Empty(t, analysisSvc.createInput.Comment)       // Is in desired state already
+		require.Equal(t, dtrack.AnalysisJustificationCodeNotReachable, analysisSvc.createInput.Justification) // Applied from existing analyses
+		require.Equal(t, dtrack.AnalysisResponseWillNotFix, analysisSvc.createInput.Response)                 // Applied from existing analyses
+		require.Empty(t, analysisSvc.createInput.Comment)                                                     // Is in desired state already
 		require.NotNil(t, analysisSvc.createInput.Suppressed)
 		require.False(t, *analysisSvc.createInput.Suppressed)
 	})
