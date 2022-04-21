@@ -11,23 +11,23 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/nscuro/dtapac/internal/model"
+	"github.com/nscuro/dtapac/internal/policy/model"
 )
 
 func TestAuditor_AuditFinding(t *testing.T) {
 	t.Run("PolicyEvalError", func(t *testing.T) {
 		testErr := errors.New("testErr")
-		auditor := NewAuditor(&policyEvalerMock{err: testErr}, nil, zerolog.Nop())
+		auditor := NewAuditor(&policyEvalerMock{err: testErr}, nil, nil, zerolog.Nop())
 
-		err := auditor.AuditFinding(context.TODO(), model.Finding{})
+		err := auditor.auditFinding(context.TODO(), model.Finding{})
 		require.Error(t, err)
 		require.Equal(t, err, testErr)
 	})
 
 	t.Run("PolicyEvalEmptyResult", func(t *testing.T) {
-		auditor := NewAuditor(&policyEvalerMock{result: model.FindingAnalysis{}}, nil, zerolog.Nop())
+		auditor := NewAuditor(&policyEvalerMock{result: model.FindingAnalysis{}}, nil, nil, zerolog.Nop())
 
-		err := auditor.AuditFinding(context.TODO(), model.Finding{})
+		err := auditor.auditFinding(context.TODO(), model.Finding{})
 		require.NoError(t, err)
 	})
 
@@ -39,9 +39,9 @@ func TestAuditor_AuditFinding(t *testing.T) {
 		analysisSvc := &analysisSvcMock{
 			getErr: net.ErrClosed,
 		}
-		auditor := NewAuditor(policyEvaler, analysisSvc, zerolog.Nop())
+		auditor := NewAuditor(policyEvaler, nil, analysisSvc, zerolog.Nop())
 
-		err := auditor.AuditFinding(context.TODO(), model.Finding{})
+		err := auditor.auditFinding(context.TODO(), model.Finding{})
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed to fetch existing analysis")
 		require.Zero(t, analysisSvc.createInput)
@@ -57,7 +57,7 @@ func TestAuditor_AuditFinding(t *testing.T) {
 			Suppress:      &suppress,
 		}}
 		analysisSvc := &analysisSvcMock{}
-		auditor := NewAuditor(policyEvaler, analysisSvc, zerolog.Nop())
+		auditor := NewAuditor(policyEvaler, nil, analysisSvc, zerolog.Nop())
 		finding := model.Finding{
 			Component: dtrack.Component{
 				UUID: uuid.New(),
@@ -70,7 +70,7 @@ func TestAuditor_AuditFinding(t *testing.T) {
 			},
 		}
 
-		err := auditor.AuditFinding(context.TODO(), finding)
+		err := auditor.auditFinding(context.TODO(), finding)
 		require.NoError(t, err)
 		require.NotZero(t, analysisSvc.createInput)
 		require.Equal(t, finding.Component.UUID, analysisSvc.createInput.Component)
@@ -110,7 +110,7 @@ func TestAuditor_AuditFinding(t *testing.T) {
 			},
 			Suppressed: true,
 		}}
-		auditor := NewAuditor(policyEvaler, analysisSvc, zerolog.Nop())
+		auditor := NewAuditor(policyEvaler, nil, analysisSvc, zerolog.Nop())
 		finding := model.Finding{
 			Component: dtrack.Component{
 				UUID: uuid.New(),
@@ -123,7 +123,7 @@ func TestAuditor_AuditFinding(t *testing.T) {
 			},
 		}
 
-		err := auditor.AuditFinding(context.TODO(), finding)
+		err := auditor.auditFinding(context.TODO(), finding)
 		require.NoError(t, err)
 		require.NotZero(t, analysisSvc.createInput)
 		require.Equal(t, finding.Component.UUID, analysisSvc.createInput.Component)
@@ -157,7 +157,7 @@ func TestAuditor_AuditFinding(t *testing.T) {
 			},
 			Suppressed: false,
 		}}
-		auditor := NewAuditor(policyEvaler, analysisSvc, zerolog.Nop())
+		auditor := NewAuditor(policyEvaler, nil, analysisSvc, zerolog.Nop())
 		finding := model.Finding{
 			Component: dtrack.Component{
 				UUID: uuid.New(),
@@ -170,7 +170,7 @@ func TestAuditor_AuditFinding(t *testing.T) {
 			},
 		}
 
-		err := auditor.AuditFinding(context.TODO(), finding)
+		err := auditor.auditFinding(context.TODO(), finding)
 		require.NoError(t, err)
 		require.Zero(t, analysisSvc.createInput)
 	})

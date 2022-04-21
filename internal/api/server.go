@@ -1,4 +1,4 @@
-package server
+package api
 
 import (
 	"context"
@@ -8,56 +8,43 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
+
+	"github.com/nscuro/dtapac/internal/opa"
 )
 
-type Option func(s *Server) error
-
-func WithHandler(method, pattern string, handler http.Handler) Option {
-	return func(s *Server) error {
-		s.router.Method(method, pattern, handler)
-		return nil
-	}
-}
-
-func WithLogger(logger zerolog.Logger) Option {
-	return func(s *Server) error {
-		s.logger = logger
-		return nil
-	}
-}
-
 type Server struct {
-	router     chi.Router
 	httpServer *http.Server
+	router     chi.Router
 	logger     zerolog.Logger
 }
 
-func New(addr string, opts ...Option) (*Server, error) {
+func NewServer(addr string, auditChan chan<- any, opaStatusChan chan<- opa.Status, logger zerolog.Logger) *Server {
 	router := chi.NewRouter()
-	router.Use(middleware.RealIP)
 	router.Use(middleware.RequestID)
 	router.Use(middleware.Recoverer)
+	router.Use(loggerMiddleware(logger))
+	router.Route("/api/v1", func(r chi.Router) {
+		r.Use(middleware.AllowContentType("application/json"))
+		r.Post("/dtrack/notification", handleNotification(auditChan))
+		r.Post("/opa/status", handleOPAStatus(opaStatusChan))
+	})
 
-	server := Server{
-		router: router,
+	return &Server{
 		httpServer: &http.Server{
 			Addr:    addr,
 			Handler: router,
 		},
-		logger: zerolog.Nop(),
+		router: router,
+		logger: logger,
 	}
-
-	for _, opt := range opts {
-		err := opt(&server)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &server, nil
 }
 
-func (s Server) Run() error {
+// ServeHTTP implements the http.Handler interface.
+func (s Server) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	s.router.ServeHTTP(rw, r)
+}
+
+func (s Server) Start() error {
 	s.logger.Debug().Str("addr", s.httpServer.Addr).Msg("starting")
 	err := s.httpServer.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
