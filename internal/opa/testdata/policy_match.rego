@@ -1,6 +1,6 @@
 package test
 
-analysis = val {
+decision = val {
     input == "ping"
     val := "pong"
 }

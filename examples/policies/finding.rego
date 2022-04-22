@@ -1,4 +1,4 @@
-package dtapac
+package dtapac.finding
 
 import input.component
 import input.project

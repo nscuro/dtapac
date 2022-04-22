@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -13,17 +14,22 @@ import (
 )
 
 type Server struct {
-	httpServer *http.Server
-	router     chi.Router
-	logger     zerolog.Logger
+	httpServer    *http.Server
+	router        chi.Router
+	auditChan     chan any
+	opaStatusChan chan opa.Status
+	logger        zerolog.Logger
 }
 
-func NewServer(addr string, auditChan chan<- any, opaStatusChan chan<- opa.Status, logger zerolog.Logger) *Server {
-	router := chi.NewRouter()
-	router.Use(middleware.RequestID)
-	router.Use(middleware.Recoverer)
-	router.Use(loggerMiddleware(logger))
-	router.Route("/api/v1", func(r chi.Router) {
+func NewServer(addr string, logger zerolog.Logger) *Server {
+	auditChan := make(chan any, 1)
+	opaStatusChan := make(chan opa.Status, 1)
+
+	r := chi.NewRouter()
+	r.Use(middleware.RequestID)
+	r.Use(middleware.Recoverer)
+	r.Use(loggerMiddleware(logger))
+	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(middleware.AllowContentType("application/json"))
 		r.Post("/dtrack/notification", handleNotification(auditChan))
 		r.Post("/opa/status", handleOPAStatus(opaStatusChan))
@@ -32,10 +38,12 @@ func NewServer(addr string, auditChan chan<- any, opaStatusChan chan<- opa.Statu
 	return &Server{
 		httpServer: &http.Server{
 			Addr:    addr,
-			Handler: router,
+			Handler: r,
 		},
-		router: router,
-		logger: logger,
+		router:        r,
+		auditChan:     auditChan,
+		opaStatusChan: opaStatusChan,
+		logger:        logger,
 	}
 }
 
@@ -45,6 +53,11 @@ func (s Server) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (s Server) Start() error {
+	defer func() {
+		close(s.auditChan)
+		close(s.opaStatusChan)
+	}()
+
 	s.logger.Debug().Str("addr", s.httpServer.Addr).Msg("starting")
 	err := s.httpServer.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -54,7 +67,24 @@ func (s Server) Start() error {
 	return nil
 }
 
-func (s Server) Stop(ctx context.Context) error {
+func (s Server) Stop() error {
 	s.logger.Debug().Msg("stopping")
-	return s.httpServer.Shutdown(ctx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err := s.httpServer.Shutdown(ctx)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	return nil
+}
+
+func (s Server) AuditChan() <-chan any {
+	return s.auditChan
+}
+
+func (s Server) OPAStatusChan() <-chan opa.Status {
+	return s.opaStatusChan
 }

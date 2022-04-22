@@ -8,43 +8,42 @@ import (
 	"os"
 	"testing"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func TestPolicyEvaluator_Evaluate(t *testing.T) {
+func TestClient_Decision(t *testing.T) {
 	opaURL := setupOPA(t)
 
-	eval, err := NewPolicyEvaluator(opaURL, "/v1/data/test/analysis", zerolog.Nop())
+	client, err := NewClient(opaURL)
 	require.NoError(t, err)
 
-	t.Run("Matched", func(t *testing.T) {
-		deployOPAPolicy(t, opaURL, "./testdata/policy_matched.rego")
+	t.Run("Match", func(t *testing.T) {
+		deployPolicy(t, opaURL, "./testdata/policy_match.rego")
 
 		var result string
-		err := eval.Eval(context.TODO(), "ping", &result)
+		err := client.Decision(context.TODO(), "/test/decision", "ping", &result)
 		require.NoError(t, err)
 		require.Equal(t, "pong", result)
 	})
 
-	t.Run("Unmatched", func(t *testing.T) {
-		deployOPAPolicy(t, opaURL, "./testdata/policy_unmatched.rego")
+	t.Run("Default", func(t *testing.T) {
+		deployPolicy(t, opaURL, "./testdata/policy_default.rego")
 
 		var result string
-		err := eval.Eval(context.TODO(), "ping", &result)
+		err := client.Decision(context.TODO(), "/test/decision", "ping", &result)
 		require.NoError(t, err)
 		require.Equal(t, "pong", result)
 	})
 
 	t.Run("Empty", func(t *testing.T) {
-		deployOPAPolicy(t, opaURL, "./testdata/policy_empty.rego")
+		deployPolicy(t, opaURL, "./testdata/policy_empty.rego")
 
 		var result string
-		err := eval.Eval(context.TODO(), "ping", &result)
+		err := client.Decision(context.TODO(), "/test/decision", "ping", &result)
 		require.Error(t, err)
-		require.Equal(t, errNoResult, err)
+		require.Equal(t, ErrNoDecisionResult, err)
 	})
 }
 
@@ -78,7 +77,7 @@ func setupOPA(t *testing.T) string {
 	return fmt.Sprintf("http://%s:%s", ip, mappedPort.Port())
 }
 
-func deployOPAPolicy(t *testing.T, opaURL, policyFile string) {
+func deployPolicy(t *testing.T, opaURL, policyFile string) {
 	policyContent, err := os.ReadFile(policyFile)
 	require.NoError(t, err)
 

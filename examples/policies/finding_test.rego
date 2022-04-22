@@ -1,4 +1,4 @@
-package dtapac
+package dtapac.finding
 
 test_analysis_nomatch {
     res := analysis with input as {}

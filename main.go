@@ -4,10 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
-	"time"
 
 	"github.com/nscuro/dtrack-client"
 	"github.com/peterbourgon/ff/v3"
@@ -20,18 +21,9 @@ import (
 	"github.com/nscuro/dtapac/internal/api"
 	"github.com/nscuro/dtapac/internal/audit"
 	"github.com/nscuro/dtapac/internal/opa"
-	"github.com/nscuro/dtapac/internal/policy"
 )
 
 func main() {
-	err := newCmd().ParseAndRun(context.Background(), os.Args[1:])
-	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-}
-
-func newCmd() *ffcli.Command {
 	fs := flag.NewFlagSet("dtapac", flag.ContinueOnError)
 	fs.String("config", "", "Path to config file")
 
@@ -40,27 +32,30 @@ func newCmd() *ffcli.Command {
 	fs.UintVar(&opts.Port, "port", 8080, "Port to listen on")
 	fs.StringVar(&opts.DTrackURL, "dtrack-url", "", "Dependency-Track API server URL")
 	fs.StringVar(&opts.DTrackAPIKey, "dtrack-apikey", "", "Dependency-Track API key")
-	fs.StringVar(&opts.OPAURL, "opa-url", "", "OPA URL")
-	fs.StringVar(&opts.OPABundle, "opa-bundle", "", "OPA bundle to listen for status updates for")
-	fs.StringVar(&opts.FindingPolicyPath, "finding-policy-path", "", "Policy path for findings")
-	fs.StringVar(&opts.ViolationPolicyPath, "violation-policy-path", "", "Policy path for violations")
-	fs.UintVar(&opts.AuditWorkers, "audit-workers", 2, "Number of workers to perform auditing")
-	fs.StringVar(&opts.LogLevel, "log-level", zerolog.LevelInfoValue, "Log level")
+	fs.StringVar(&opts.OPAURL, "opa-url", "", "Open Policy Agent URL")
+	fs.StringVar(&opts.WatchBundle, "watch-bundle", "", "OPA bundle to watch")
+	fs.StringVar(&opts.FindingPolicyPath, "finding-policy-path", "", "Policy path for finding analysis")
+	fs.StringVar(&opts.ViolationPolicyPath, "violation-policy-path", "", "Policy path for violation analysis")
+	fs.UintVar(&opts.AuditWorkers, "audit-workers", 2, "Number of audit workers")
 
-	return &ffcli.Command{
-		Name:       "dtapac",
-		ShortUsage: "dtapac [FLAGS...]",
-		LongHelp:   "Audit Dependency-Track findings via policy as code.",
-		FlagSet:    fs,
+	cmd := ffcli.Command{
+		Name: "dtapac",
 		Options: []ff.Option{
-			ff.WithEnvVarPrefix("DTAPAC"),
+			ff.WithEnvVarNoPrefix(),
 			ff.WithConfigFileFlag("config"),
 			ff.WithConfigFileParser(ffyaml.Parser),
 			ff.WithAllowMissingConfigFile(true),
 		},
+		FlagSet: fs,
 		Exec: func(ctx context.Context, _ []string) error {
 			return exec(ctx, opts)
 		},
+	}
+
+	err := cmd.ParseAndRun(context.Background(), os.Args[1:])
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 
@@ -70,89 +65,74 @@ type options struct {
 	DTrackURL           string
 	DTrackAPIKey        string
 	OPAURL              string
-	OPABundle           string
+	WatchBundle         string
 	FindingPolicyPath   string
 	ViolationPolicyPath string
 	AuditWorkers        uint
-	LogLevel            string
 }
 
 func exec(ctx context.Context, opts options) error {
 	logger := log.Output(zerolog.ConsoleWriter{
 		Out: os.Stderr,
 	})
-	if logLvl, err := zerolog.ParseLevel(opts.LogLevel); err == nil {
-		logger = logger.Level(logLvl)
-	} else {
-		return err
-	}
 
-	dtrackClient, err := dtrack.NewClient(opts.DTrackURL, dtrack.WithAPIKey(opts.DTrackAPIKey))
+	_, err := dtrack.NewClient(opts.DTrackURL, dtrack.WithAPIKey(opts.DTrackAPIKey))
 	if err != nil {
 		return fmt.Errorf("failed to setup dtrack client: %w", err)
 	}
 
-	var (
-		findingPolicyEvaler   policy.Evaluator
-		violationPolicyEvaler policy.Evaluator
-	)
-	if opts.FindingPolicyPath != "" {
-		findingPolicyEvaler, err = opa.NewPolicyEvaluator(opts.OPAURL, opts.FindingPolicyPath, getSvcLogger("findingPolicyEvaler", logger))
-		if err != nil {
-			return fmt.Errorf("failed to setup finding policy evaluator: %w", err)
-		}
-	} else {
-		logger.Warn().Msg("no finding policy path configured, will use no-op policy evaluator for findings")
-		findingPolicyEvaler = policy.NewNopEvaluator()
-	}
-	if opts.ViolationPolicyPath != "" {
-		violationPolicyEvaler, err = opa.NewPolicyEvaluator(opts.OPAURL, opts.ViolationPolicyPath, getSvcLogger("violationPolicyEvaler", logger))
-		if err != nil {
-			return fmt.Errorf("failed to setup violation policy evaluator: %w", err)
-		}
-	} else {
-		logger.Warn().Msg("no violation policy path configured, will use no-op policy evaluator for violations")
-		violationPolicyEvaler = policy.NewNopEvaluator()
+	opaClient, err := opa.NewClient(opts.OPAURL)
+	if err != nil {
+		return fmt.Errorf("failed to setup opa client: %w", err)
 	}
 
-	auditChan := make(chan any, opts.AuditWorkers*2)
-	opaStatusChan := make(chan opa.Status, 1)
+	apiServerAddr := net.JoinHostPort(opts.Host, strconv.FormatUint(uint64(opts.Port), 10))
+	apiServer := api.NewServer(apiServerAddr, serviceLogger("apiServer", logger))
+
+	auditor := audit.NewAuditor(opaClient, apiServer.AuditChan(),
+		audit.WithFindingPolicyPath(opts.FindingPolicyPath),
+		audit.WithViolationPolicyPath(opts.ViolationPolicyPath),
+		audit.WithWorkers(opts.AuditWorkers),
+		audit.WithLogger(serviceLogger("auditor", logger)))
+
 	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(apiServer.Start)
+	eg.Go(func() error {
+		return auditor.Start(egCtx)
+	})
+	eg.Go(func() error {
+		for input := range auditor.OutputChan() {
+			logger.Info().Interface("input", input).Msg("got audit result")
+		}
 
-	srv := api.NewServer(fmt.Sprintf("%s:%d", opts.Host, opts.Port), auditChan, opaStatusChan, getSvcLogger("api", logger))
-	eg.Go(srv.Start)
+		return nil
+	})
 
-	auditor := audit.NewAuditor(findingPolicyEvaler, violationPolicyEvaler, dtrackClient.Analysis, getSvcLogger("auditor", logger))
-	for i := uint(0); i < opts.AuditWorkers; i++ {
+	if opts.WatchBundle != "" {
+		bundleWatcher := opa.NewBundleWatcher(opts.WatchBundle, apiServer.OPAStatusChan(), serviceLogger("bundleWatcher", logger))
+
 		eg.Go(func() error {
-			return auditor.Audit(egCtx, auditChan)
+			return bundleWatcher.Start(egCtx)
 		})
 	}
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	termChan := make(chan os.Signal, 1)
+	signal.Notify(termChan, os.Interrupt, syscall.SIGTERM)
 	select {
-	case <-stop:
+	case <-termChan:
 		logger.Debug().Str("reason", "shutdown requested").Msg("shutting down")
-		break
 	case <-egCtx.Done():
 		logger.Debug().Str("reason", egCtx.Err().Error()).Msg("shutting down")
-		break
 	}
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	err = srv.Stop(timeoutCtx)
+	err = apiServer.Stop()
 	if err != nil {
-		logger.Err(err).Msg("failed to stop http server")
+		logger.Error().Err(err).Msg("failed to shutdown api server")
 	}
 
-	logger.Debug().Msg("waiting for workers to stop")
-	close(opaStatusChan)
-	close(auditChan)
 	return eg.Wait()
 }
 
-func getSvcLogger(svc string, logger zerolog.Logger) zerolog.Logger {
-	return logger.With().Str("svc", svc).Logger()
+func serviceLogger(name string, parent zerolog.Logger) zerolog.Logger {
+	return parent.With().Str("svc", name).Logger()
 }

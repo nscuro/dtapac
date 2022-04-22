@@ -27,3 +27,27 @@ type FindingAnalysis struct {
 	Comment       string                       `json:"comment"`
 	Suppress      *bool                        `json:"suppress"`
 }
+
+func (fa FindingAnalysis) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("state", string(fa.State)).
+		Str("justification", string(fa.Justification)).
+		Str("response", string(fa.Response)).
+		Str("comment", fa.Comment).
+		Interface("suppress", fa.Suppress)
+}
+
+// Violation TODO
+type Violation struct {
+}
+
+func (v Violation) MarshalZerologObject(e *zerolog.Event) {
+	//TODO implement me
+}
+
+// ViolationAnalysis TODO
+type ViolationAnalysis struct {
+}
+
+func (va ViolationAnalysis) MarshalZerologObject(e *zerolog.Event) {
+	//TODO implement me
+}

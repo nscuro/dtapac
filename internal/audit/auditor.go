@@ -2,196 +2,179 @@ package audit
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
+	"path"
 
-	"github.com/google/uuid"
-	"github.com/moby/locker"
 	"github.com/nscuro/dtrack-client"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 
-	"github.com/nscuro/dtapac/internal/policy"
-	"github.com/nscuro/dtapac/internal/policy/model"
+	"github.com/nscuro/dtapac/internal/model"
+	"github.com/nscuro/dtapac/internal/opa"
 )
 
-type dtrackAnalysisSvc interface {
-	Get(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*dtrack.Analysis, error)
-	Create(context.Context, dtrack.AnalysisRequest) (*dtrack.Analysis, error)
-}
+type Option func(*Auditor)
 
-// Auditor TODO
-type Auditor struct {
-	findingPolicyEvaler   policy.Evaluator
-	violationPolicyEvaler policy.Evaluator
-	analysisSvc           dtrackAnalysisSvc
-	findingLocker         *locker.Locker
-	violationLocker       *locker.Locker
-	logger                zerolog.Logger
-}
-
-// NewAuditor TODO
-func NewAuditor(findingPolicyEvaler, violationPolicyEvaler policy.Evaluator, analysisSvc dtrackAnalysisSvc, logger zerolog.Logger) *Auditor {
-	return &Auditor{
-		findingPolicyEvaler:   findingPolicyEvaler,
-		violationPolicyEvaler: violationPolicyEvaler,
-		analysisSvc:           analysisSvc,
-		findingLocker:         locker.New(),
-		violationLocker:       locker.New(),
-		logger:                logger,
+func WithFindingPolicyPath(policyPath string) Option {
+	return func(a *Auditor) {
+		a.findingPolicyPath = policyPath
 	}
 }
 
-// Audit TODO
-func (a *Auditor) Audit(ctx context.Context, auditChan <-chan any) error {
+func WithViolationPolicyPath(policyPath string) Option {
+	return func(a *Auditor) {
+		a.violationPolicyPath = policyPath
+	}
+}
+
+func WithWorkers(workers uint) Option {
+	return func(a *Auditor) {
+		a.workers = workers
+	}
+}
+
+func WithLogger(logger zerolog.Logger) Option {
+	return func(a *Auditor) {
+		a.logger = logger
+	}
+}
+
+type Auditor struct {
+	opaClient           opa.Client
+	inputChan           <-chan any
+	outputChan          chan any
+	findingPolicyPath   string
+	violationPolicyPath string
+	workers             uint
+	logger              zerolog.Logger
+}
+
+func NewAuditor(opaClient opa.Client, inputChan <-chan any, opts ...Option) *Auditor {
+	auditor := Auditor{
+		opaClient:  opaClient,
+		inputChan:  inputChan,
+		outputChan: make(chan any, 1),
+		workers:    1,
+		logger:     zerolog.Nop(),
+	}
+
+	for _, opt := range opts {
+		opt(&auditor)
+	}
+
+	return &auditor
+}
+
+func (a Auditor) Start(ctx context.Context) error {
+	defer close(a.outputChan)
+
+	a.logger.Debug().Msgf("starting %d workers", a.workers)
+
+	eg, egCtx := errgroup.WithContext(ctx)
+	for i := uint(0); i < a.workers; i++ {
+		workerID := i
+		eg.Go(func() error {
+			return a.runWorker(egCtx, workerID)
+		})
+	}
+
+	return eg.Wait()
+}
+
+func (a Auditor) OutputChan() <-chan any {
+	return a.outputChan
+}
+
+func (a Auditor) runWorker(ctx context.Context, workerID uint) error {
+	logger := a.logger.With().Uint("workerID", workerID).Logger()
+
 	var (
-		auditItem   any
-		channelOpen bool
-		err         error
+		input any
+		open  bool
 	)
 
 	for {
 		select {
-		case auditItem, channelOpen = <-auditChan:
-			if !channelOpen {
-				a.logger.Debug().Str("reason", "channel closed").Msg("stopping")
+		case input, open = <-a.inputChan:
+			if !open {
+				logger.Debug().
+					Str("reason", "input channel closed").
+					Msg("stopping")
 				return nil
 			}
-			break
 		case <-ctx.Done():
-			a.logger.Debug().Str("reason", "canceled").Msg("stopping")
+			logger.Debug().
+				Str("reason", ctx.Err().Error()).
+				Msg("stopping")
 			return ctx.Err()
 		}
 
-		switch item := auditItem.(type) {
+		switch item := input.(type) {
 		case model.Finding:
-			err = a.auditFinding(ctx, item)
+			a.auditFinding(ctx, item, logger)
 		case model.Violation:
-			err = a.auditViolation(ctx, item)
+			a.auditViolation(ctx, item, logger)
 		default:
-			err = fmt.Errorf("cannot audit item of type %T", auditItem)
-		}
-		if err != nil {
-			a.logger.Error().Err(err).Msg("failed to audit item")
+			logger.Warn().
+				Str("itemType", fmt.Sprintf("%T", input)).
+				Msg("cannot audit item of unsupported type")
 		}
 	}
 }
 
-func (a *Auditor) auditFinding(ctx context.Context, finding model.Finding) (err error) {
-	findingLogger := a.logger.With().Object("finding", finding).Logger()
+func (a Auditor) auditFinding(ctx context.Context, finding model.Finding, logger zerolog.Logger) {
+	logger = logger.With().Object("finding", finding).Logger()
+
+	if a.findingPolicyPath == "" {
+		logger.Warn().
+			Str("reason", "no policy configured").
+			Msg("cannot audit finding")
+		return
+	}
 
 	var analysis model.FindingAnalysis
-	err = a.findingPolicyEvaler.Eval(ctx, finding, &analysis)
+	err := a.opaClient.Decision(ctx, path.Join(a.findingPolicyPath, "/analysis"), finding, &analysis)
 	if err != nil {
-		return
-	} else if analysis == (model.FindingAnalysis{}) {
-		findingLogger.Debug().Msg("not covered by policy")
+		logger.Error().Err(err).Msg("failed to get policy decision")
 		return
 	}
 
-	// It can happen that the same finding is audited concurrently, so we need a way to
-	// prevent dirty reads and redundant writes.
-	lockName := fmt.Sprintf("%s:%s:%s", finding.Component.UUID, finding.Project.UUID, finding.Vulnerability.UUID)
-	a.findingLocker.Lock(lockName)
-	defer func() {
-		err := a.findingLocker.Unlock(lockName)
-		if err != nil {
-			a.logger.Error().Err(err).
-				Str("lock", lockName).
-				Msg("failed to unlock")
-		}
-	}()
-
-	findingLogger.Debug().Msg("fetching existing analysis")
-	existingAnalysis, err := a.analysisSvc.Get(ctx, finding.Component.UUID, finding.Project.UUID, finding.Vulnerability.UUID)
-	if err != nil {
-		// Dependency-Track does not respond with a 404 when no analysis was found,
-		// but with a 200 and an empty response body instead.
-		if errors.Is(err, io.EOF) {
-			findingLogger.Debug().Msg("no analysis exists yet")
-		} else {
-			err = fmt.Errorf("failed to fetch existing analysis: %w", err)
-			return
-		}
-	}
-
-	analysisReq := buildAnalysisRequest(analysis, existingAnalysis)
-
-	// Check whether the analysis is already in the desired state.
-	// If it is, there's no need for us to submit another request.
-	if analysisReq == (dtrack.AnalysisRequest{}) {
-		findingLogger.Debug().Msg("analysis is still current")
-		return
+	if analysis == (model.FindingAnalysis{}) {
+		logger.Debug().Msg("finding is not covered by policy")
 	} else {
-		analysisReq.Component = finding.Component.UUID
-		analysisReq.Project = finding.Project.UUID
-		analysisReq.Vulnerability = finding.Vulnerability.UUID
+		a.outputChan <- dtrack.AnalysisRequest{
+			Component:     finding.Component.UUID,
+			Project:       finding.Project.UUID,
+			Vulnerability: finding.Vulnerability.UUID,
+			State:         analysis.State,
+			Justification: analysis.Justification,
+			Response:      analysis.Response,
+			Comment:       analysis.Comment,
+			Suppressed:    analysis.Suppress,
+		}
 	}
+}
 
-	// Note: Use a context that is decoupled from ctx here!
-	// We don't want in-flight requests to be canceled.
-	findingLogger.Debug().Interface("analysis", analysisReq).Msg("submitting analysis")
-	_, err = a.analysisSvc.Create(context.Background(), analysisReq)
-	if err != nil {
-		err = fmt.Errorf("failed to create analysis: %w", err)
+func (a Auditor) auditViolation(ctx context.Context, violation model.Violation, logger zerolog.Logger) {
+	logger = logger.With().Object("violation", violation).Logger()
+
+	if a.violationPolicyPath == "" {
+		logger.Warn().
+			Str("reason", "no policy configured").
+			Msg("cannot audit violation")
 		return
 	}
 
-	return nil
-}
-
-func (a *Auditor) auditViolation(_ context.Context, _ model.Violation) error {
-	// TODO
-	return nil
-}
-
-func buildAnalysisRequest(analysis model.FindingAnalysis, existing *dtrack.Analysis) dtrack.AnalysisRequest {
-	req := dtrack.AnalysisRequest{
-		State:         analysis.State,
-		Justification: analysis.Justification,
-		Response:      analysis.Response,
-		Comment:       analysis.Comment,
-		Suppressed:    analysis.Suppress,
+	var analysis model.ViolationAnalysis
+	err := a.opaClient.Decision(ctx, path.Join(a.violationPolicyPath, "/analysis"), violation, &analysis)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to get policy decision")
+		return
 	}
 
-	if existing != nil {
-		// Apply statuses of the existing analysis if the policy
-		// analysis doesn't set them already. If we don't do this,
-		// we'll be overriding them to NOT_SET in Dependency-Track.
-		if req.State == "" && existing.State != "" {
-			req.State = existing.State
-		}
-		if req.Justification == "" && existing.Justification != "" {
-			req.Justification = existing.Justification
-		}
-		if req.Response == "" && existing.Response != "" {
-			req.Response = existing.Response
-		}
-
-		// Prevent redundant comments.
-		if req.Comment != "" {
-			commentExists := false
-			for _, comment := range existing.Comments {
-				if comment.Comment == req.Comment {
-					commentExists = true
-					break
-				}
-			}
-			if commentExists {
-				req.Comment = ""
-			}
-		}
-
-		// Let's see... did anything change at all?
-		if req.State == existing.State &&
-			req.Justification == existing.Justification &&
-			req.Response == existing.Response &&
-			req.Comment == "" &&
-			(req.Suppressed == nil || *req.Suppressed == existing.Suppressed) {
-			// Nope. Same old same old.
-			return dtrack.AnalysisRequest{}
-		}
+	if analysis == (model.ViolationAnalysis{}) {
+		logger.Debug().Msg("violation is not covered by policy")
+	} else {
+		// TODO
 	}
-
-	return req
 }

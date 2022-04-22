@@ -7,11 +7,11 @@ services:
     - dtrack
     - opa
     environment:
-      DTAPAC_DTRACK_URL: "http://dtrack:8080"
-      DTAPAC_DTRACK_APIKEY: "${DTAPAC_DTRACK_APIKEY}"
-      DTAPAC_OPA_URL: "http://opa:8181"
-      DTAPAC_OPA_BUNDLE: "dtapac"
-      DTAPAC_LOG_LEVEL: "debug"
+      DTRACK_URL: "http://dtrack:8080"
+      DTRACK_APIKEY: "${DTAPAC_DTRACK_APIKEY}"
+      OPA_URL: "http://opa:8181"
+      #WATCH_BUNDLE: dtapac
+      FINDING_POLICY_PATH: "/dtapac/finding"
     networks:
     - public
     ports:
@@ -31,12 +31,12 @@ services:
     command:
     - run
     - --server
-    # (Periodically) pull mybundle from NGINX
+    # (Periodically) pull bundle from NGINX
     - --set=services.bundle_server.url=http://opa_bundle_server
     - --set=bundles.dtapac.service=bundle_server
     - --set=bundles.dtapac.resource=bundles/dtapac.tar.gz
     # Send status notifications to DTAPAC
-    - --set=services.dtapac.url=http://dtapac:8080/opa
+    - --set=services.dtapac.url=http://dtapac:8080/api/v1/opa
     - --set=status.service=dtapac
     depends_on:
     - opa_bundle_server
