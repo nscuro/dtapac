@@ -6,16 +6,26 @@ import (
 	"os"
 	"testing"
 
+	"github.com/nscuro/dtrack-client"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/nscuro/dtapac/internal/audit"
 	"github.com/nscuro/dtapac/internal/model"
 )
 
 func TestHandleNotification(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		auditChan := make(chan any, 2)
-		srv := NewServer("", auditChan, zerolog.Logger{})
+		var findingAuditor audit.FindingAuditor = func(finding model.Finding) (model.FindingAnalysis, error) {
+			if finding.Project.UUID.String() == "6fb1820f-5280-4577-ac51-40124aabe307" {
+				return model.FindingAnalysis{
+					Comment: "Foobar",
+				}, nil
+			} else {
+				return model.FindingAnalysis{}, nil
+			}
+		}
+		srv := NewServer("", findingAuditor, zerolog.Logger{})
 
 		notificationFile, err := os.Open("./testdata/dtrack-new-vuln.json")
 		require.NoError(t, err)
@@ -30,20 +40,18 @@ func TestHandleNotification(t *testing.T) {
 
 		res := rec.Result()
 		require.Equal(t, http.StatusAccepted, res.StatusCode)
-		require.Len(t, auditChan, 2)
+		require.Len(t, srv.AuditChan(), 1)
 
-		auditItem := <-auditChan
-		require.IsType(t, model.Finding{}, auditItem)
-		finding := auditItem.(model.Finding)
-		require.Equal(t, "4d5cd8df-cff7-4212-a038-91ae4ab79396", finding.Component.UUID.String())
-		require.Equal(t, "6fb1820f-5280-4577-ac51-40124aabe307", finding.Project.UUID.String())
-		require.Equal(t, "941a93f5-e06b-4304-84de-4d788eeb4969", finding.Vulnerability.UUID.String())
-
-		auditItem = <-auditChan
-		require.IsType(t, model.Finding{}, auditItem)
-		finding = auditItem.(model.Finding)
-		require.Equal(t, "4d5cd8df-cff7-4212-a038-91ae4ab79396", finding.Component.UUID.String())
-		require.Equal(t, "09479a81-44b4-4223-bea7-de8697d47a6e", finding.Project.UUID.String())
-		require.Equal(t, "941a93f5-e06b-4304-84de-4d788eeb4969", finding.Vulnerability.UUID.String())
+		auditItem := <-srv.AuditChan()
+		require.IsType(t, dtrack.AnalysisRequest{}, auditItem)
+		analysisReq := auditItem.(dtrack.AnalysisRequest)
+		require.Equal(t, "4d5cd8df-cff7-4212-a038-91ae4ab79396", analysisReq.Component.String())
+		require.Equal(t, "6fb1820f-5280-4577-ac51-40124aabe307", analysisReq.Project.String())
+		require.Equal(t, "941a93f5-e06b-4304-84de-4d788eeb4969", analysisReq.Vulnerability.String())
+		require.Equal(t, "", string(analysisReq.State))
+		require.Equal(t, "", string(analysisReq.Justification))
+		require.Equal(t, "", string(analysisReq.Response))
+		require.Equal(t, "Foobar", analysisReq.Comment)
+		require.Nil(t, analysisReq.Suppressed)
 	})
 }
