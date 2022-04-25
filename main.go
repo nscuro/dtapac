@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path"
 	"strconv"
 	"syscall"
 
@@ -20,6 +21,7 @@ import (
 
 	"github.com/nscuro/dtapac/internal/api"
 	"github.com/nscuro/dtapac/internal/audit"
+	"github.com/nscuro/dtapac/internal/model"
 	"github.com/nscuro/dtapac/internal/opa"
 )
 
@@ -76,7 +78,7 @@ func exec(ctx context.Context, opts options) error {
 		Out: os.Stderr,
 	})
 
-	_, err := dtrack.NewClient(opts.DTrackURL, dtrack.WithAPIKey(opts.DTrackAPIKey))
+	dtClient, err := dtrack.NewClient(opts.DTrackURL, dtrack.WithAPIKey(opts.DTrackAPIKey))
 	if err != nil {
 		return fmt.Errorf("failed to setup dtrack client: %w", err)
 	}
@@ -86,23 +88,29 @@ func exec(ctx context.Context, opts options) error {
 		return fmt.Errorf("failed to setup opa client: %w", err)
 	}
 
-	apiServerAddr := net.JoinHostPort(opts.Host, strconv.FormatUint(uint64(opts.Port), 10))
-	apiServer := api.NewServer(apiServerAddr, serviceLogger("apiServer", logger))
+	var findingAuditor audit.FindingAuditor = func(finding model.Finding) (analysis model.FindingAnalysis, auditErr error) {
+		auditErr = opaClient.Decision(context.Background(), path.Join(opts.FindingPolicyPath, "/analysis"), finding, &analysis)
+		return
+	}
 
-	auditor := audit.NewAuditor(opaClient, apiServer.AuditChan(),
-		audit.WithFindingPolicyPath(opts.FindingPolicyPath),
-		audit.WithViolationPolicyPath(opts.ViolationPolicyPath),
-		audit.WithWorkers(opts.AuditWorkers),
-		audit.WithLogger(serviceLogger("auditor", logger)))
+	apiServerAddr := net.JoinHostPort(opts.Host, strconv.FormatUint(uint64(opts.Port), 10))
+	apiServer := api.NewServer(apiServerAddr, findingAuditor, serviceLogger("apiServer", logger))
+
+	submitter := audit.NewSubmitter(dtClient.Analysis, serviceLogger("submitter", logger))
 
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(apiServer.Start)
 	eg.Go(func() error {
-		return auditor.Start(egCtx)
-	})
-	eg.Go(func() error {
-		for input := range auditor.OutputChan() {
-			logger.Info().Interface("input", input).Msg("got audit result")
+		for auditResult := range apiServer.AuditChan() {
+			switch res := auditResult.(type) {
+			case dtrack.AnalysisRequest:
+				err := submitter.SubmitAnalysis(egCtx, res)
+				if err != nil {
+					logger.Error().Err(err).
+						Interface("request", res).
+						Msg("failed to submit analysis request")
+				}
+			}
 		}
 
 		return nil

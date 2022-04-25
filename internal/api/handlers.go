@@ -8,11 +8,12 @@ import (
 
 	"github.com/nscuro/dtrack-client"
 
+	"github.com/nscuro/dtapac/internal/audit"
 	"github.com/nscuro/dtapac/internal/model"
 	"github.com/nscuro/dtapac/internal/opa"
 )
 
-func handleNotification(auditChan chan<- any) http.HandlerFunc {
+func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAuditor) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		logger := getRequestLogger(r)
 
@@ -45,7 +46,25 @@ func handleNotification(auditChan chan<- any) http.HandlerFunc {
 					Vulnerability: subject.Vulnerability,
 				}
 
-				auditChan <- finding
+				analysis, err := findingAuditor(finding)
+				if err == nil {
+					if analysis != (model.FindingAnalysis{}) {
+						auditChan <- dtrack.AnalysisRequest{
+							Component:     finding.Component.UUID,
+							Project:       finding.Project.UUID,
+							Vulnerability: finding.Vulnerability.UUID,
+							State:         analysis.State,
+							Justification: analysis.Justification,
+							Response:      analysis.Response,
+							Comment:       analysis.Comment,
+							Suppressed:    analysis.Suppress,
+						}
+					} else {
+						logger.Debug().Object("finding", finding).Msg("finding is not covered by policy")
+					}
+				} else {
+					logger.Error().Err(err).Object("finding", finding).Msg("failed to audit finding")
+				}
 			}
 		default:
 			// The only way this can ever happen is when dtrack-client

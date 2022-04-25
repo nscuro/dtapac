@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
 
+	"github.com/nscuro/dtapac/internal/audit"
 	"github.com/nscuro/dtapac/internal/opa"
 )
 
@@ -21,7 +22,7 @@ type Server struct {
 	logger        zerolog.Logger
 }
 
-func NewServer(addr string, logger zerolog.Logger) *Server {
+func NewServer(addr string, findingAuditor audit.FindingAuditor, logger zerolog.Logger) *Server {
 	auditChan := make(chan any, 1)
 	opaStatusChan := make(chan opa.Status, 1)
 
@@ -31,7 +32,7 @@ func NewServer(addr string, logger zerolog.Logger) *Server {
 	r.Use(loggerMiddleware(logger))
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(middleware.AllowContentType("application/json"))
-		r.Post("/dtrack/notification", handleNotification(auditChan))
+		r.Post("/dtrack/notification", handleNotification(auditChan, findingAuditor))
 		r.Post("/opa/status", handleOPAStatus(opaStatusChan))
 	})
 
