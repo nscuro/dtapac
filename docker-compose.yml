@@ -27,7 +27,7 @@ services:
     restart: unless-stopped
 
   opa:
-    image: openpolicyagent/opa:0.39.0-rootless@sha256:8b799624170a413497abeb0bd49ae9b330fd317f0ad3ef9587332d5a5b760047
+    image: openpolicyagent/opa:0.40.0-rootless@sha256:f8c63ec0abf636e2216053c4eff53c64ff576ea207ca56712da72d117ec52332
     command:
     - run
     - --server
