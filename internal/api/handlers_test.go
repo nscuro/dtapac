@@ -25,7 +25,7 @@ func TestHandleNotification(t *testing.T) {
 				return model.FindingAnalysis{}, nil
 			}
 		}
-		srv := NewServer("", findingAuditor, zerolog.Logger{})
+		srv := NewServer("", findingAuditor, nil, zerolog.Logger{})
 
 		notificationFile, err := os.Open("./testdata/dtrack-new-vuln.json")
 		require.NoError(t, err)

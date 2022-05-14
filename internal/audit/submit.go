@@ -50,12 +50,12 @@ func (s Submitter) SubmitAnalysis(ctx context.Context, analysisReq dtrack.Analys
 	}()
 
 	var existingAnalysis *dtrack.Analysis
-	if analysis, err := s.analysisSvc.Get(ctx, analysisReq.Component, analysisReq.Project, analysisReq.Vulnerability); err != nil && !errors.Is(err, io.EOF) {
+	if analysis, err := s.analysisSvc.Get(ctx, analysisReq.Component, analysisReq.Project, analysisReq.Vulnerability); err == nil {
+		existingAnalysis = &analysis
+	} else if !errors.Is(err, io.EOF) {
 		// Dependency-Track does not respond with a 404 when no analysis was found,
 		// but with a 200 and an empty response body instead.
 		return fmt.Errorf("failed to fetch existing analysis: %w", err)
-	} else {
-		existingAnalysis = &analysis
 	}
 
 	if existingAnalysis != nil {
@@ -119,12 +119,12 @@ func (s Submitter) SubmitViolationAnalysis(ctx context.Context, analysisReq dtra
 	}()
 
 	var existingAnalysis *dtrack.ViolationAnalysis
-	if analysis, err := s.violationAnalysisSvc.Get(ctx, analysisReq.Component, analysisReq.PolicyViolation); err != nil && !errors.Is(err, io.EOF) {
+	if analysis, err := s.violationAnalysisSvc.Get(ctx, analysisReq.Component, analysisReq.PolicyViolation); err == nil {
+		existingAnalysis = &analysis
+	} else if !errors.Is(err, io.EOF) {
 		// Dependency-Track does not respond with a 404 when no analysis was found,
 		// but with a 200 and an empty response body instead.
 		return fmt.Errorf("failed to fetch existing analysis: %w", err)
-	} else {
-		existingAnalysis = &analysis
 	}
 
 	if existingAnalysis != nil {
