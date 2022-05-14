@@ -92,9 +92,13 @@ func exec(ctx context.Context, opts options) error {
 		auditErr = opaClient.Decision(context.Background(), path.Join(opts.FindingPolicyPath, "/analysis"), finding, &analysis)
 		return
 	}
+	var violationAuditor audit.ViolationAuditor = func(violation model.Violation) (analysis model.ViolationAnalysis, auditErr error) {
+		auditErr = opaClient.Decision(context.Background(), path.Join(opts.ViolationPolicyPath, "/analysis"), violation, &analysis)
+		return
+	}
 
 	apiServerAddr := net.JoinHostPort(opts.Host, strconv.FormatUint(uint64(opts.Port), 10))
-	apiServer := api.NewServer(apiServerAddr, findingAuditor, serviceLogger("apiServer", logger))
+	apiServer := api.NewServer(apiServerAddr, findingAuditor, violationAuditor, serviceLogger("apiServer", logger))
 
 	submitter := audit.NewSubmitter(dtClient.Analysis, serviceLogger("submitter", logger))
 

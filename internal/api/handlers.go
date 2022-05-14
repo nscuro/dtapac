@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/nscuro/dtrack-client"
@@ -13,18 +12,11 @@ import (
 	"github.com/nscuro/dtapac/internal/opa"
 )
 
-func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAuditor) http.HandlerFunc {
+func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAuditor, violationAuditor audit.ViolationAuditor) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		logger := getRequestLogger(r)
 
-		bodyContent, err := io.ReadAll(r.Body)
-		if err != nil {
-			logger.Error().Err(err).Msg("failed to read request body")
-			rw.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		notification, err := dtrack.ParseNotification(bodyContent)
+		notification, err := dtrack.ParseNotification(r.Body)
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to parse notification")
 			rw.WriteHeader(http.StatusBadRequest)
@@ -65,6 +57,29 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 				} else {
 					logger.Error().Err(err).Object("finding", finding).Msg("failed to audit finding")
 				}
+			}
+		case *dtrack.PolicyViolationSubject:
+			violation := model.Violation{
+				Component:       subject.Component,
+				Project:         subject.Project,
+				PolicyViolation: subject.PolicyViolation,
+			}
+
+			analysis, err := violationAuditor(violation)
+			if err == nil {
+				if analysis != (model.ViolationAnalysis{}) {
+					auditChan <- dtrack.ViolationAnalysisRequest{
+						Component:       subject.Component.UUID,
+						PolicyViolation: subject.PolicyViolation.UUID,
+						State:           analysis.State,
+						Comment:         analysis.Comment,
+						Suppressed:      analysis.Suppress,
+					}
+				} else {
+					logger.Debug().Object("violation", violation).Msg("violation is not covered by policy")
+				}
+			} else {
+				logger.Error().Err(err).Object("violation", violation).Msg("failed to audit violation")
 			}
 		default:
 			// The only way this can ever happen is when dtrack-client
