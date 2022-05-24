@@ -4,7 +4,10 @@
 [![Latest GitHub release](https://img.shields.io/github/v/release/nscuro/dtapac?sort=semver)](https://github.com/nscuro/dtapac/releases/latest)
 [![License](https://img.shields.io/badge/license-Apache%202.0-brightgreen.svg)](LICENSE)
 
-*Audit Dependency-Track findings and policy violations (soon™️) via policy as code*
+*Audit Dependency-Track findings and policy violations via policy as code*
+
+> Consider this project to be a proof-of-concept. It is not very sophisticated (yet?), but it gets the job done.
+> Try it in a test environment first, *do not* skip this and run it in production!
 
 ## Introduction
 
