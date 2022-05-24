@@ -31,6 +31,11 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 
 		switch subject := notification.Subject.(type) {
 		case *dtrack.NewVulnerabilitySubject:
+			if findingAuditor == nil {
+				logger.Warn().Msg("received new vulnerability notification, but findings auditing is disabled")
+				break
+			}
+
 			for i := range subject.AffectedProjects {
 				finding := model.Finding{
 					Component:     subject.Component,
@@ -59,6 +64,11 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 				}
 			}
 		case *dtrack.PolicyViolationSubject:
+			if violationAuditor == nil {
+				logger.Warn().Msg("received policy violation notification, but violations auditing is disabled")
+				break
+			}
+
 			violation := model.Violation{
 				Component:       subject.Component,
 				Project:         subject.Project,

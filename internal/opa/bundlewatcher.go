@@ -13,7 +13,7 @@ type BundleWatcher struct {
 	bundleName     string
 	bundleRevision string
 	statusChan     <-chan Status
-	subscriptions  []chan<- struct{}
+	subscriptions  []chan<- string
 	logger         zerolog.Logger
 }
 
@@ -64,7 +64,7 @@ func (bw *BundleWatcher) Start(ctx context.Context) error {
 
 				for i := range bw.subscriptions {
 					select {
-					case bw.subscriptions[i] <- struct{}{}:
+					case bw.subscriptions[i] <- bundle.ActiveRevision:
 					default:
 					}
 				}
@@ -74,11 +74,11 @@ func (bw *BundleWatcher) Start(ctx context.Context) error {
 }
 
 // Subscribe adds and returns a new subscription to bundle updates.
-func (bw *BundleWatcher) Subscribe() <-chan struct{} {
+func (bw *BundleWatcher) Subscribe() <-chan string {
 	bw.Lock()
 	defer bw.Unlock()
 
-	subChan := make(chan struct{})
+	subChan := make(chan string)
 	bw.subscriptions = append(bw.subscriptions, subChan)
 
 	return subChan
