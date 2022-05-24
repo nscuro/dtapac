@@ -32,7 +32,7 @@ func (bw *BundleWatcher) Start(ctx context.Context) error {
 		}
 	}()
 
-	bw.logger.Info().Msgf("watching bundle %s for changes", bw.bundleName)
+	bw.logger.Debug().Msgf("watching bundle %s for changes", bw.bundleName)
 
 	var (
 		status Status
@@ -60,7 +60,7 @@ func (bw *BundleWatcher) Start(ctx context.Context) error {
 				bw.logger.Info().
 					Str("bundle", name).
 					Str("revision", bundle.ActiveRevision).
-					Msg("detected bundle update")
+					Msg("bundle update detected")
 
 				for i := range bw.subscriptions {
 					select {
@@ -68,6 +68,11 @@ func (bw *BundleWatcher) Start(ctx context.Context) error {
 					default:
 					}
 				}
+			} else {
+				bw.logger.Debug().
+					Str("bundle", name).
+					Str("revision", bw.bundleRevision).
+					Msg("bundle did not change")
 			}
 		}
 	}

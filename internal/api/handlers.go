@@ -117,7 +117,11 @@ func handleOPAStatus(statusChan chan<- opa.Status) http.HandlerFunc {
 			return
 		}
 
-		statusChan <- status
+		select {
+		case statusChan <- status:
+		default:
+			logger.Warn().Msg("received opa status update, but a previous update is still waiting to be processed")
+		}
 
 		rw.WriteHeader(http.StatusOK)
 	}
