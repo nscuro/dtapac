@@ -19,6 +19,8 @@ analysis = res {
 }
 
 analysis = res {
+    project.group == "com.acme"
+    project.name == "acme-app"
     component.name == "h2"
 
     res := {
