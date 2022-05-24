@@ -1,3 +1,6 @@
 dtrack-url: https://dtrack.example.com
 dtrack-apikey: changeit
 opa-url: http://localhost:8181
+watch-bundle: dtapac
+finding-policy-path: /dtapac/finding
+violation-policy-path: /dtapac/violation
