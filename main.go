@@ -41,7 +41,9 @@ func main() {
 	fs.StringVar(&opts.ViolationPolicyPath, "violation-policy-path", "", "Policy path for violation analysis")
 
 	cmd := ffcli.Command{
-		Name: "dtapac",
+		Name:       "dtapac",
+		ShortUsage: "dtapac [FLAGS...]",
+		LongHelp:   `Audit Dependency-Track findings and policy violations via policy as code.`,
 		Options: []ff.Option{
 			ff.WithEnvVarNoPrefix(),
 			ff.WithConfigFileFlag("config"),
@@ -77,14 +79,29 @@ func exec(ctx context.Context, opts options) error {
 		Out: os.Stderr,
 	})
 
-	dtClient, err := dtrack.NewClient(opts.DTrackURL, dtrack.WithAPIKey(opts.DTrackAPIKey))
+	dtrackClient, err := dtrack.NewClient(opts.DTrackURL, dtrack.WithAPIKey(opts.DTrackAPIKey))
 	if err != nil {
 		return fmt.Errorf("failed to setup dtrack client: %w", err)
+	}
+	if about, err := dtrackClient.About.Get(ctx); err == nil {
+		if version := about.Version; version != "" {
+			logger.Info().Msgf("connected to dependency-track %s", version)
+		} else {
+			return fmt.Errorf("unable to determine dependency-track version, please verify provided url")
+		}
+	} else {
+		return fmt.Errorf("failed to fetch version from dependency-track: %w", err)
 	}
 
 	opaClient, err := opa.NewClient(opts.OPAURL)
 	if err != nil {
 		return fmt.Errorf("failed to setup opa client: %w", err)
+	}
+	err = opaClient.Health(context.Background())
+	if err == nil {
+		logger.Info().Msg("connected to opa")
+	} else {
+		return fmt.Errorf("opa health check failed: %w", err)
 	}
 
 	var (
@@ -104,7 +121,7 @@ func exec(ctx context.Context, opts options) error {
 		}
 	}
 	if findingAuditor == nil && violationAuditor == nil {
-		return fmt.Errorf("neither findings- nor violations analysis path provided")
+		return fmt.Errorf("neither a findings- nor a violations auditor could be setup")
 	}
 
 	apiServerAddr := net.JoinHostPort(opts.Host, strconv.FormatUint(uint64(opts.Port), 10))
@@ -112,7 +129,7 @@ func exec(ctx context.Context, opts options) error {
 
 	// Audit results can come from multiple sources (ad-hoc or portfolio-wide analyses).
 	// We keep track of them in a slice and merge them later if necessary.
-	auditChans := []<-chan any{apiServer.AuditChan()}
+	auditResultChans := []<-chan any{apiServer.AuditResultChan()}
 
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(apiServer.Start)
@@ -143,7 +160,7 @@ func exec(ctx context.Context, opts options) error {
 		// Listen for triggers from the above goroutine and perform a portfolio-wide
 		// analysis when triggered.
 		auditChan := make(chan any, 1)
-		auditChans = append(auditChans, auditChan)
+		auditResultChans = append(auditResultChans, auditChan)
 		eg.Go(func() error {
 			defer close(auditChan)
 
@@ -151,7 +168,7 @@ func exec(ctx context.Context, opts options) error {
 				logger.Info().Msg("starting portfolio analysis")
 
 				projects, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Project], error) {
-					return dtClient.Project.GetAll(egCtx, po)
+					return dtrackClient.Project.GetAll(egCtx, po)
 				})
 				if err != nil {
 					logger.Error().Err(err).Msg("failed to fetch projects")
@@ -161,7 +178,7 @@ func exec(ctx context.Context, opts options) error {
 				for i, project := range projects {
 					if findingAuditor != nil {
 						findings, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Finding], error) {
-							return dtClient.Finding.GetAll(egCtx, project.UUID, true, po)
+							return dtrackClient.Finding.GetAll(egCtx, project.UUID, true, po)
 						})
 						if err != nil {
 							logger.Error().Err(err).
@@ -202,7 +219,7 @@ func exec(ctx context.Context, opts options) error {
 
 					if violationAuditor != nil {
 						violations, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.PolicyViolation], error) {
-							return dtClient.PolicyViolation.GetAllForProject(egCtx, project.UUID, false, po)
+							return dtrackClient.PolicyViolation.GetAllForProject(egCtx, project.UUID, false, po)
 						})
 						if err != nil {
 							logger.Error().Err(err).
@@ -211,8 +228,12 @@ func exec(ctx context.Context, opts options) error {
 							continue
 						}
 
-						for range violations {
-							violation := model.Violation{}
+						for j := range violations {
+							violation := model.Violation{
+								Component:       violations[j].Component,
+								Project:         violations[i].Project,
+								PolicyViolation: violations[i],
+							}
 							analysis, err := violationAuditor(violation)
 							if err != nil {
 								logger.Error().Err(err).
@@ -222,11 +243,11 @@ func exec(ctx context.Context, opts options) error {
 							}
 							if analysis != (model.ViolationAnalysis{}) {
 								auditChan <- dtrack.ViolationAnalysisRequest{
-									// TODO: Component:       subject.Component.UUID,
-									// TODO: PolicyViolation: subject.PolicyViolation.UUID,
-									State:      analysis.State,
-									Comment:    analysis.Comment,
-									Suppressed: analysis.Suppress,
+									Component:       violation.Component.UUID,
+									PolicyViolation: violations[i].UUID,
+									State:           analysis.State,
+									Comment:         analysis.Comment,
+									Suppressed:      analysis.Suppress,
 								}
 							}
 						}
@@ -246,19 +267,17 @@ func exec(ctx context.Context, opts options) error {
 		})
 	}
 
-	// Merge multiple audit result channels into one.
-	// Submitting audit results must be a non-concurrent operation,
-	// otherwise we'll be running in all kinds of weird race conditions.
-	var auditChan <-chan any
-	if len(auditChans) == 1 {
-		auditChan = auditChans[0]
+	// If we have more than one channel for audit results, merge them into one.
+	var auditResultChan <-chan any
+	if len(auditResultChans) == 1 {
+		auditResultChan = auditResultChans[0]
 	} else {
-		auditChan = merge(auditChans...)
+		auditResultChan = merge(auditResultChans...)
 	}
 
-	submitter := audit.NewSubmitter(dtClient.Analysis, serviceLogger("submitter", logger))
+	submitter := audit.NewSubmitter(dtrackClient.Analysis, serviceLogger("submitter", logger))
 	eg.Go(func() error {
-		for auditResult := range auditChan {
+		for auditResult := range auditResultChan {
 			switch res := auditResult.(type) {
 			case dtrack.AnalysisRequest:
 				submitErr := submitter.SubmitAnalysis(egCtx, res)
@@ -302,7 +321,6 @@ func serviceLogger(name string, parent zerolog.Logger) zerolog.Logger {
 }
 
 // merge converts a list of channels to a single channel, implementing a fan-in operation.
-//
 // This code snippet was taken from https://go.dev/blog/pipelines
 func merge(cs ...<-chan any) <-chan any {
 	var wg sync.WaitGroup

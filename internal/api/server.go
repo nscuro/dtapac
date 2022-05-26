@@ -15,11 +15,11 @@ import (
 )
 
 type Server struct {
-	httpServer    *http.Server
-	router        chi.Router
-	auditChan     chan any
-	opaStatusChan chan opa.Status
-	logger        zerolog.Logger
+	httpServer      *http.Server
+	router          chi.Router
+	auditResultChan chan any
+	opaStatusChan   chan opa.Status
+	logger          zerolog.Logger
 }
 
 func NewServer(addr string, findingAuditor audit.FindingAuditor, violationAuditor audit.ViolationAuditor, logger zerolog.Logger) *Server {
@@ -41,10 +41,10 @@ func NewServer(addr string, findingAuditor audit.FindingAuditor, violationAudito
 			Addr:    addr,
 			Handler: r,
 		},
-		router:        r,
-		auditChan:     auditChan,
-		opaStatusChan: opaStatusChan,
-		logger:        logger,
+		router:          r,
+		auditResultChan: auditChan,
+		opaStatusChan:   opaStatusChan,
+		logger:          logger,
 	}
 }
 
@@ -53,9 +53,12 @@ func (s Server) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(rw, r)
 }
 
+// Start starts the server and blocks until it is stopped.
+// Once stopped, all channels created by the server are closed.
+// A server instance can thus not be restarted (although we don't explicitly prevent that right now).
 func (s Server) Start() error {
 	defer func() {
-		close(s.auditChan)
+		close(s.auditResultChan)
 		close(s.opaStatusChan)
 	}()
 
@@ -68,6 +71,7 @@ func (s Server) Start() error {
 	return nil
 }
 
+// Stop shuts the server down.
 func (s Server) Stop() error {
 	s.logger.Debug().Msg("stopping")
 
@@ -82,10 +86,12 @@ func (s Server) Stop() error {
 	return nil
 }
 
-func (s Server) AuditChan() <-chan any {
-	return s.auditChan
+// AuditResultChan returns the server's channel for audit results.
+func (s Server) AuditResultChan() <-chan any {
+	return s.auditResultChan
 }
 
+// OPAStatusChan returns the server's channel for OPA status updates.
 func (s Server) OPAStatusChan() <-chan opa.Status {
 	return s.opaStatusChan
 }

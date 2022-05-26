@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net/http"
-	"os"
-	"testing"
-
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
+	"net/http"
+	"os"
+	"testing"
 )
 
 func TestClient_Decision(t *testing.T) {
@@ -47,9 +46,19 @@ func TestClient_Decision(t *testing.T) {
 	})
 }
 
+func TestClient_Health(t *testing.T) {
+	opaURL := setupOPA(t)
+
+	client, err := NewClient(opaURL)
+	require.NoError(t, err)
+
+	err = client.Health(context.TODO())
+	require.NoError(t, err)
+}
+
 func setupOPA(t *testing.T) string {
 	req := testcontainers.ContainerRequest{
-		Image:        "openpolicyagent/opa:0.39.0-rootless",
+		Image:        "openpolicyagent/opa:0.40.0-rootless",
 		Cmd:          []string{"run", "--server"},
 		ExposedPorts: []string{"8181/tcp"},
 		WaitingFor:   wait.ForLog("Initializing server"),

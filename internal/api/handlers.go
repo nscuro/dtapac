@@ -3,9 +3,8 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
-
 	"github.com/nscuro/dtrack-client"
+	"net/http"
 
 	"github.com/nscuro/dtapac/internal/audit"
 	"github.com/nscuro/dtapac/internal/model"
@@ -23,7 +22,7 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 			return
 		}
 
-		if notification.Group != "NEW_VULNERABILITY" {
+		if notification.Group != "NEW_VULNERABILITY" && notification.Group != "POLICY_VIOLATION" {
 			logger.Warn().Str("group", notification.Group).Msg("unsupported notification group")
 			rw.WriteHeader(http.StatusBadRequest)
 			return
@@ -43,8 +42,8 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 					Vulnerability: subject.Vulnerability,
 				}
 
-				analysis, err := findingAuditor(finding)
-				if err == nil {
+				analysis, auditErr := findingAuditor(finding)
+				if auditErr == nil {
 					if analysis != (model.FindingAnalysis{}) {
 						auditChan <- dtrack.AnalysisRequest{
 							Component:     finding.Component.UUID,
@@ -60,7 +59,7 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 						logger.Debug().Object("finding", finding).Msg("finding is not covered by policy")
 					}
 				} else {
-					logger.Error().Err(err).Object("finding", finding).Msg("failed to audit finding")
+					logger.Error().Err(auditErr).Object("finding", finding).Msg("failed to audit finding")
 				}
 			}
 		case *dtrack.PolicyViolationSubject:
@@ -75,8 +74,8 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 				PolicyViolation: subject.PolicyViolation,
 			}
 
-			analysis, err := violationAuditor(violation)
-			if err == nil {
+			analysis, auditErr := violationAuditor(violation)
+			if auditErr == nil {
 				if analysis != (model.ViolationAnalysis{}) {
 					auditChan <- dtrack.ViolationAnalysisRequest{
 						Component:       subject.Component.UUID,
@@ -89,7 +88,7 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 					logger.Debug().Object("violation", violation).Msg("violation is not covered by policy")
 				}
 			} else {
-				logger.Error().Err(err).Object("violation", violation).Msg("failed to audit violation")
+				logger.Error().Err(auditErr).Object("violation", violation).Msg("failed to audit violation")
 			}
 		default:
 			// The only way this can ever happen is when dtrack-client

@@ -40,9 +40,9 @@ func TestHandleNotification(t *testing.T) {
 
 		res := rec.Result()
 		require.Equal(t, http.StatusAccepted, res.StatusCode)
-		require.Len(t, srv.AuditChan(), 1)
+		require.Len(t, srv.AuditResultChan(), 1)
 
-		auditItem := <-srv.AuditChan()
+		auditItem := <-srv.AuditResultChan()
 		require.IsType(t, dtrack.AnalysisRequest{}, auditItem)
 		analysisReq := auditItem.(dtrack.AnalysisRequest)
 		require.Equal(t, "4d5cd8df-cff7-4212-a038-91ae4ab79396", analysisReq.Component.String())

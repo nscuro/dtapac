@@ -37,6 +37,7 @@ func NewSubmitter(analysisService analysisService, logger zerolog.Logger) *Submi
 	}
 }
 
+// SubmitAnalysis submits a dtrack.AnalysisRequest to Dependency-Track.
 func (s Submitter) SubmitAnalysis(ctx context.Context, analysisReq dtrack.AnalysisRequest) error {
 	lockName := fmt.Sprintf("finding:%s:%s:%s", analysisReq.Component, analysisReq.Project, analysisReq.Vulnerability)
 	s.locker.Lock(lockName)
@@ -86,18 +87,23 @@ func (s Submitter) SubmitAnalysis(ctx context.Context, analysisReq dtrack.Analys
 			}
 		}
 
-		if analysisReq.State == existingAnalysis.State &&
-			analysisReq.Justification == existingAnalysis.Justification &&
-			analysisReq.Response == existingAnalysis.Response &&
-			analysisReq.Comment == "" &&
+		if analysisReq.State == existingAnalysis.State && analysisReq.Justification == existingAnalysis.Justification &&
+			analysisReq.Response == existingAnalysis.Response && analysisReq.Comment == "" &&
 			(analysisReq.Suppressed == nil || *analysisReq.Suppressed == existingAnalysis.Suppressed) {
-			// Analysis is already in desired state, nothing to do.
+			s.logger.Info().
+				Str("component", analysisReq.Component.String()).
+				Str("project", analysisReq.Project.String()).
+				Str("vulnerability", analysisReq.Vulnerability.String()).
+				Msg("analysis is already in desired state")
 			return nil
 		}
 	}
 
-	// Note: Use a context that is decoupled from ctx here!
-	// We don't want in-flight requests to be canceled.
+	s.logger.Info().
+		Str("component", analysisReq.Component.String()).
+		Str("project", analysisReq.Project.String()).
+		Str("vulnerability", analysisReq.Vulnerability.String()).
+		Msg("submitting violation analysis")
 	_, err := s.analysisSvc.Create(context.Background(), analysisReq)
 	if err != nil {
 		return fmt.Errorf("failed to create analysis: %w", err)
@@ -106,6 +112,7 @@ func (s Submitter) SubmitAnalysis(ctx context.Context, analysisReq dtrack.Analys
 	return nil
 }
 
+// SubmitViolationAnalysis submits a dtrack.ViolationAnalysisRequest to Dependency-Track.
 func (s Submitter) SubmitViolationAnalysis(ctx context.Context, analysisReq dtrack.ViolationAnalysisRequest) error {
 	lockName := fmt.Sprintf("violation:%s:%s", analysisReq.Component, analysisReq.PolicyViolation)
 	s.locker.Lock(lockName)
@@ -149,16 +156,20 @@ func (s Submitter) SubmitViolationAnalysis(ctx context.Context, analysisReq dtra
 			}
 		}
 
-		if analysisReq.State == existingAnalysis.State &&
-			analysisReq.Comment == "" &&
+		if analysisReq.State == existingAnalysis.State && analysisReq.Comment == "" &&
 			(analysisReq.Suppressed == nil || *analysisReq.Suppressed == existingAnalysis.Suppressed) {
-			// Analysis is already in desired state, nothing to do.
+			s.logger.Info().
+				Str("component", analysisReq.Component.String()).
+				Str("violation", analysisReq.PolicyViolation.String()).
+				Msg("violation analysis is already in desired state")
 			return nil
 		}
 	}
 
-	// Note: Use a context that is decoupled from ctx here!
-	// We don't want in-flight requests to be canceled.
+	s.logger.Info().
+		Str("component", analysisReq.Component.String()).
+		Str("violation", analysisReq.PolicyViolation.String()).
+		Msg("submitting violation analysis")
 	_, err := s.violationAnalysisSvc.Update(context.Background(), analysisReq)
 	if err != nil {
 		return fmt.Errorf("failed to update analysis: %w", err)

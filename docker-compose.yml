@@ -8,7 +8,7 @@ services:
     - opa
     environment:
       DTRACK_URL: "http://dtrack:8080"
-      DTRACK_APIKEY: "${DTAPAC_DTRACK_APIKEY}"
+      DTRACK_APIKEY: "${DTRACK_APIKEY}"
       OPA_URL: "http://opa:8181"
       WATCH_BUNDLE: dtapac
       FINDING_POLICY_PATH: "/dtapac/finding"
