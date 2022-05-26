@@ -24,6 +24,7 @@ type FindingAnalysis struct {
 	State         dtrack.AnalysisState         `json:"state"`
 	Justification dtrack.AnalysisJustification `json:"justification"`
 	Response      dtrack.AnalysisResponse      `json:"response"`
+	Details       string                       `json:"details"`
 	Comment       string                       `json:"comment"`
 	Suppress      *bool                        `json:"suppress"`
 }

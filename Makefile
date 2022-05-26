@@ -27,7 +27,7 @@ docker:
 .PHONY: docker
 
 example-bundle:
-	opa build -o ./examples/bundles/dtapac.tar.gz -r $(shell git rev-parse HEAD) ./examples/policies
+	opa build -o ./examples/bundles/dtapac.tar.gz -r $(shell date | sha256sum | cut -d ' ' -f 1) ./examples/policies
 .PHONY: example-bundle
 
 all: clean build test docker

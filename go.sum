@@ -470,6 +470,8 @@ github.com/nscuro/dtrack-client v0.5.1-0.20220524143319-dd998801dc49 h1:258Ebs6C
 github.com/nscuro/dtrack-client v0.5.1-0.20220524143319-dd998801dc49/go.mod h1:mYk3FvFKMt7UtQYrQDGAkjiHnCkgwa7coM3yYkAC/L0=
 github.com/nscuro/dtrack-client v0.5.1-0.20220526182851-883092cdcd32 h1:RjaLL3KeE49OGzj7Q/Zx1eT+3gnbAYVU/h+ymzlqUEE=
 github.com/nscuro/dtrack-client v0.5.1-0.20220526182851-883092cdcd32/go.mod h1:mYk3FvFKMt7UtQYrQDGAkjiHnCkgwa7coM3yYkAC/L0=
+github.com/nscuro/dtrack-client v0.5.1-0.20220526201447-da44cac1f0d2 h1:d2tkrh/VUZCVqt1xQENBKSs2f3I3JsGoEqLQ20/ZOL8=
+github.com/nscuro/dtrack-client v0.5.1-0.20220526201447-da44cac1f0d2/go.mod h1:mYk3FvFKMt7UtQYrQDGAkjiHnCkgwa7coM3yYkAC/L0=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/oklog/ulid v1.3.1/go.mod h1:CirwcVhetQ6Lv90oh/F+FBtV6XMibvdAFo93nm5qn4U=
 github.com/olekukonko/tablewriter v0.0.0-20170122224234-a0225b3f23b5/go.mod h1:vsDQFd/mU46D+Z4whnwzcISnGGzXWMclvtLoiIKAKIo=

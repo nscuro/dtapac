@@ -88,8 +88,8 @@ func (s Submitter) SubmitAnalysis(ctx context.Context, analysisReq dtrack.Analys
 		}
 
 		if analysisReq.State == existingAnalysis.State && analysisReq.Justification == existingAnalysis.Justification &&
-			analysisReq.Response == existingAnalysis.Response && analysisReq.Comment == "" &&
-			(analysisReq.Suppressed == nil || *analysisReq.Suppressed == existingAnalysis.Suppressed) {
+			analysisReq.Response == existingAnalysis.Response && analysisReq.Details == existingAnalysis.Details &&
+			analysisReq.Comment == "" && (analysisReq.Suppressed == nil || *analysisReq.Suppressed == existingAnalysis.Suppressed) {
 			s.logger.Info().
 				Str("component", analysisReq.Component.String()).
 				Str("project", analysisReq.Project.String()).
@@ -103,7 +103,7 @@ func (s Submitter) SubmitAnalysis(ctx context.Context, analysisReq dtrack.Analys
 		Str("component", analysisReq.Component.String()).
 		Str("project", analysisReq.Project.String()).
 		Str("vulnerability", analysisReq.Vulnerability.String()).
-		Msg("submitting violation analysis")
+		Msg("submitting analysis")
 	_, err := s.analysisSvc.Create(context.Background(), analysisReq)
 	if err != nil {
 		return fmt.Errorf("failed to create analysis: %w", err)

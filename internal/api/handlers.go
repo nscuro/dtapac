@@ -3,8 +3,9 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/nscuro/dtrack-client"
 	"net/http"
+
+	"github.com/nscuro/dtrack-client"
 
 	"github.com/nscuro/dtapac/internal/audit"
 	"github.com/nscuro/dtapac/internal/model"
@@ -52,6 +53,7 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 							State:         analysis.State,
 							Justification: analysis.Justification,
 							Response:      analysis.Response,
+							Details:       analysis.Details,
 							Comment:       analysis.Comment,
 							Suppressed:    analysis.Suppress,
 						}

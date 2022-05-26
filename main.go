@@ -177,6 +177,7 @@ func exec(ctx context.Context, opts options) error {
 
 				for i, project := range projects {
 					if findingAuditor != nil {
+						logger.Debug().Str("project", project.UUID.String()).Msg("fetching findings")
 						findings, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Finding], error) {
 							return dtrackClient.Finding.GetAll(egCtx, project.UUID, true, po)
 						})
@@ -193,6 +194,7 @@ func exec(ctx context.Context, opts options) error {
 								Project:       projects[i],
 								Vulnerability: findings[j].Vulnerability,
 							}
+							logger.Debug().Object("finding", finding).Msg("auditing finding")
 							analysis, err := findingAuditor(finding)
 							if err != nil {
 								logger.Error().Err(err).
@@ -208,6 +210,7 @@ func exec(ctx context.Context, opts options) error {
 									State:         analysis.State,
 									Justification: analysis.Justification,
 									Response:      analysis.Response,
+									Details:       analysis.Details,
 									Comment:       analysis.Comment,
 									Suppressed:    analysis.Suppress,
 								}
@@ -218,6 +221,7 @@ func exec(ctx context.Context, opts options) error {
 					}
 
 					if violationAuditor != nil {
+						logger.Debug().Str("project", project.UUID.String()).Msg("fetching policy violations")
 						violations, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.PolicyViolation], error) {
 							return dtrackClient.PolicyViolation.GetAllForProject(egCtx, project.UUID, false, po)
 						})
@@ -234,6 +238,7 @@ func exec(ctx context.Context, opts options) error {
 								Project:         violations[i].Project,
 								PolicyViolation: violations[i],
 							}
+							logger.Debug().Object("violation", violation).Msg("auditing violation")
 							analysis, err := violationAuditor(violation)
 							if err != nil {
 								logger.Error().Err(err).
