@@ -8,7 +8,6 @@ import (
 	"github.com/nscuro/dtrack-client"
 
 	"github.com/nscuro/dtapac/internal/audit"
-	"github.com/nscuro/dtapac/internal/model"
 	"github.com/nscuro/dtapac/internal/opa"
 )
 
@@ -37,7 +36,7 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 			}
 
 			for i := range subject.AffectedProjects {
-				finding := model.Finding{
+				finding := audit.Finding{
 					Component:     subject.Component,
 					Project:       subject.AffectedProjects[i],
 					Vulnerability: subject.Vulnerability,
@@ -45,7 +44,7 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 
 				analysis, auditErr := findingAuditor(finding)
 				if auditErr == nil {
-					if analysis != (model.FindingAnalysis{}) {
+					if analysis != (audit.FindingAnalysis{}) {
 						auditChan <- dtrack.AnalysisRequest{
 							Component:     finding.Component.UUID,
 							Project:       finding.Project.UUID,
@@ -70,7 +69,7 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 				break
 			}
 
-			violation := model.Violation{
+			violation := audit.Violation{
 				Component:       subject.Component,
 				Project:         subject.Project,
 				PolicyViolation: subject.PolicyViolation,
@@ -78,7 +77,7 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 
 			analysis, auditErr := violationAuditor(violation)
 			if auditErr == nil {
-				if analysis != (model.ViolationAnalysis{}) {
+				if analysis != (audit.ViolationAnalysis{}) {
 					auditChan <- dtrack.ViolationAnalysisRequest{
 						Component:       subject.Component.UUID,
 						PolicyViolation: subject.PolicyViolation.UUID,

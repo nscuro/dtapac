@@ -22,7 +22,6 @@ import (
 
 	"github.com/nscuro/dtapac/internal/api"
 	"github.com/nscuro/dtapac/internal/audit"
-	"github.com/nscuro/dtapac/internal/model"
 	"github.com/nscuro/dtapac/internal/opa"
 )
 
@@ -109,13 +108,13 @@ func exec(ctx context.Context, opts options) error {
 		violationAuditor audit.ViolationAuditor
 	)
 	if opts.FindingPolicyPath != "" {
-		findingAuditor = func(finding model.Finding) (analysis model.FindingAnalysis, auditErr error) {
+		findingAuditor = func(finding audit.Finding) (analysis audit.FindingAnalysis, auditErr error) {
 			auditErr = opaClient.Decision(context.Background(), path.Join(opts.FindingPolicyPath, "/analysis"), finding, &analysis)
 			return
 		}
 	}
 	if opts.ViolationPolicyPath != "" {
-		violationAuditor = func(violation model.Violation) (analysis model.ViolationAnalysis, auditErr error) {
+		violationAuditor = func(violation audit.Violation) (analysis audit.ViolationAnalysis, auditErr error) {
 			auditErr = opaClient.Decision(context.Background(), path.Join(opts.ViolationPolicyPath, "/analysis"), violation, &analysis)
 			return
 		}
@@ -189,7 +188,7 @@ func exec(ctx context.Context, opts options) error {
 						}
 
 						for j := range findings {
-							finding := model.Finding{
+							finding := audit.Finding{
 								Component:     findings[j].Component,
 								Project:       projects[i],
 								Vulnerability: findings[j].Vulnerability,
@@ -202,7 +201,7 @@ func exec(ctx context.Context, opts options) error {
 									Msg("failed to audit finding")
 								continue
 							}
-							if analysis != (model.FindingAnalysis{}) {
+							if analysis != (audit.FindingAnalysis{}) {
 								auditChan <- dtrack.AnalysisRequest{
 									Component:     finding.Component.UUID,
 									Project:       finding.Project.UUID,
@@ -233,7 +232,7 @@ func exec(ctx context.Context, opts options) error {
 						}
 
 						for j := range violations {
-							violation := model.Violation{
+							violation := audit.Violation{
 								Component:       violations[j].Component,
 								Project:         violations[i].Project,
 								PolicyViolation: violations[i],
@@ -246,7 +245,7 @@ func exec(ctx context.Context, opts options) error {
 									Msg("failed to audit violation")
 								continue
 							}
-							if analysis != (model.ViolationAnalysis{}) {
+							if analysis != (audit.ViolationAnalysis{}) {
 								auditChan <- dtrack.ViolationAnalysisRequest{
 									Component:       violation.Component.UUID,
 									PolicyViolation: violations[i].UUID,

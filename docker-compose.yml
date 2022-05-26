@@ -32,11 +32,11 @@ services:
     command:
     - run
     - --server
-    # (Periodically) pull bundle from NGINX
+    # (Periodically) pull bundle from nginx
     - --set=services.bundle_server.url=http://opa_bundle_server
     - --set=bundles.dtapac.service=bundle_server
     - --set=bundles.dtapac.resource=bundles/dtapac.tar.gz
-    # Send status notifications to DTAPAC
+    # Send status notifications to dtapac
     - --set=services.dtapac.url=http://dtapac:8080/api/v1/opa
     - --set=status.service=dtapac
     depends_on:

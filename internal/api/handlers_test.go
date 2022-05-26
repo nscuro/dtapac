@@ -11,18 +11,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/nscuro/dtapac/internal/audit"
-	"github.com/nscuro/dtapac/internal/model"
 )
 
 func TestHandleNotification(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		var findingAuditor audit.FindingAuditor = func(finding model.Finding) (model.FindingAnalysis, error) {
+		var findingAuditor audit.FindingAuditor = func(finding audit.Finding) (audit.FindingAnalysis, error) {
 			if finding.Project.UUID.String() == "6fb1820f-5280-4577-ac51-40124aabe307" {
-				return model.FindingAnalysis{
+				return audit.FindingAnalysis{
 					Comment: "Foobar",
 				}, nil
 			} else {
-				return model.FindingAnalysis{}, nil
+				return audit.FindingAnalysis{}, nil
 			}
 		}
 		srv := NewServer("", findingAuditor, nil, zerolog.Logger{})

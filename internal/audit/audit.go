@@ -1,7 +1,5 @@
 package audit
 
-import "github.com/nscuro/dtapac/internal/model"
+type FindingAuditor func(finding Finding) (FindingAnalysis, error)
 
-type FindingAuditor func(finding model.Finding) (model.FindingAnalysis, error)
-
-type ViolationAuditor func(violation model.Violation) (model.ViolationAnalysis, error)
+type ViolationAuditor func(violation Violation) (ViolationAnalysis, error)

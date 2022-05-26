@@ -466,10 +466,6 @@ github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f/go.mod h1:ZdcZmHo+
 github.com/ncw/swift v1.0.47/go.mod h1:23YIA4yWVnGwv2dQlN4bB7egfYX6YLn0Yo/S6zZO/ZM=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWbfPhv4DMiApHyliiK5xCTNVSPiaAs=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
-github.com/nscuro/dtrack-client v0.5.1-0.20220524143319-dd998801dc49 h1:258Ebs6Cj5c9/bEOjqEdntLQH0JIy1tV4JsbXTW47sE=
-github.com/nscuro/dtrack-client v0.5.1-0.20220524143319-dd998801dc49/go.mod h1:mYk3FvFKMt7UtQYrQDGAkjiHnCkgwa7coM3yYkAC/L0=
-github.com/nscuro/dtrack-client v0.5.1-0.20220526182851-883092cdcd32 h1:RjaLL3KeE49OGzj7Q/Zx1eT+3gnbAYVU/h+ymzlqUEE=
-github.com/nscuro/dtrack-client v0.5.1-0.20220526182851-883092cdcd32/go.mod h1:mYk3FvFKMt7UtQYrQDGAkjiHnCkgwa7coM3yYkAC/L0=
 github.com/nscuro/dtrack-client v0.5.1-0.20220526201447-da44cac1f0d2 h1:d2tkrh/VUZCVqt1xQENBKSs2f3I3JsGoEqLQ20/ZOL8=
 github.com/nscuro/dtrack-client v0.5.1-0.20220526201447-da44cac1f0d2/go.mod h1:mYk3FvFKMt7UtQYrQDGAkjiHnCkgwa7coM3yYkAC/L0=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
