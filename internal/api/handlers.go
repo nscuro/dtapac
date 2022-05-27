@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/nscuro/dtrack-client"
+	"github.com/nscuro/dtrack-client/notification"
 
 	"github.com/nscuro/dtapac/internal/audit"
 	"github.com/nscuro/dtapac/internal/opa"
@@ -15,21 +17,21 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 	return func(rw http.ResponseWriter, r *http.Request) {
 		logger := getRequestLogger(r)
 
-		notification, err := dtrack.ParseNotification(r.Body)
+		n, err := notification.Parse(r.Body)
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to parse notification")
 			rw.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
-		if notification.Group != "NEW_VULNERABILITY" && notification.Group != "POLICY_VIOLATION" {
-			logger.Warn().Str("group", notification.Group).Msg("unsupported notification group")
+		if n.Group != notification.GroupNewVulnerability && n.Group != notification.GroupPolicyViolation {
+			logger.Warn().Str("group", n.Group).Msg("unsupported notification group")
 			rw.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
-		switch subject := notification.Subject.(type) {
-		case *dtrack.NewVulnerabilitySubject:
+		switch subject := n.Subject.(type) {
+		case *notification.NewVulnerabilitySubject:
 			if findingAuditor == nil {
 				logger.Warn().Msg("received new vulnerability notification, but findings auditing is disabled")
 				break
@@ -37,14 +39,17 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 
 			for i := range subject.AffectedProjects {
 				finding := audit.Finding{
-					Component:     subject.Component,
-					Project:       subject.AffectedProjects[i],
-					Vulnerability: subject.Vulnerability,
+					Component:     mapComponent(subject.Component),
+					Project:       mapProject(subject.AffectedProjects[i]),
+					Vulnerability: mapVulnerability(subject.Vulnerability),
 				}
 
+				logger.Debug().Object("finding", finding).Msg("auditing finding")
 				analysis, auditErr := findingAuditor(finding)
 				if auditErr == nil {
 					if analysis != (audit.FindingAnalysis{}) {
+						logger.Debug().Object("analysis", analysis).Msg("received finding analysis")
+
 						auditChan <- dtrack.AnalysisRequest{
 							Component:     finding.Component.UUID,
 							Project:       finding.Project.UUID,
@@ -63,21 +68,24 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 					logger.Error().Err(auditErr).Object("finding", finding).Msg("failed to audit finding")
 				}
 			}
-		case *dtrack.PolicyViolationSubject:
+		case *notification.PolicyViolationSubject:
 			if violationAuditor == nil {
 				logger.Warn().Msg("received policy violation notification, but violations auditing is disabled")
 				break
 			}
 
 			violation := audit.Violation{
-				Component:       subject.Component,
-				Project:         subject.Project,
-				PolicyViolation: subject.PolicyViolation,
+				Component:       mapComponent(subject.Component),
+				Project:         mapProject(subject.Project),
+				PolicyViolation: mapPolicyViolation(subject.PolicyViolation),
 			}
 
+			logger.Debug().Object("violation", violation).Msg("auditing violation")
 			analysis, auditErr := violationAuditor(violation)
 			if auditErr == nil {
 				if analysis != (audit.ViolationAnalysis{}) {
+					logger.Debug().Object("analysis", analysis).Msg("received violation analysis")
+
 					auditChan <- dtrack.ViolationAnalysisRequest{
 						Component:       subject.Component.UUID,
 						PolicyViolation: subject.PolicyViolation.UUID,
@@ -95,7 +103,7 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 			// The only way this can ever happen is when dtrack-client
 			// has a bug in its notification parsing logic.
 			logger.Error().
-				Str("type", fmt.Sprintf("%T", notification.Subject)).
+				Str("type", fmt.Sprintf("%T", n.Subject)).
 				Msg("notification subject is of unexpected type")
 			rw.WriteHeader(http.StatusBadRequest)
 			return
@@ -124,5 +132,71 @@ func handleOPAStatus(statusChan chan<- opa.Status) http.HandlerFunc {
 		}
 
 		rw.WriteHeader(http.StatusOK)
+	}
+}
+
+func mapComponent(input notification.Component) dtrack.Component {
+	return dtrack.Component{
+		UUID:    input.UUID,
+		Group:   input.Group,
+		Name:    input.Name,
+		Version: input.Version,
+		MD5:     input.MD5,
+		SHA1:    input.SHA1,
+		SHA256:  input.SHA256,
+		SHA512:  input.SHA512,
+		PURL:    input.PURL,
+	}
+}
+
+func mapPolicyViolation(input notification.PolicyViolation) dtrack.PolicyViolation {
+	return dtrack.PolicyViolation{
+		UUID: input.UUID,
+		Type: input.Type,
+		PolicyCondition: &dtrack.PolicyCondition{
+			UUID:     input.PolicyCondition.UUID,
+			Subject:  input.PolicyCondition.Subject,
+			Operator: input.PolicyCondition.Operator,
+			Value:    input.PolicyCondition.Value,
+			Policy: &dtrack.Policy{
+				UUID:           input.PolicyCondition.Policy.UUID,
+				Name:           input.PolicyCondition.Policy.Name,
+				ViolationState: input.PolicyCondition.Policy.ViolationState,
+			},
+		},
+	}
+}
+
+func mapProject(input notification.Project) dtrack.Project {
+	var projectTags []dtrack.Tag
+	if len(input.Tags) > 0 {
+		for _, tagName := range strings.Split(input.Tags, ",") {
+			tagName = strings.TrimSpace(tagName)
+			if tagName != "" {
+				projectTags = append(projectTags, dtrack.Tag{Name: tagName})
+			}
+		}
+	}
+
+	return dtrack.Project{
+		UUID:    input.UUID,
+		Name:    input.Name,
+		Version: input.Description,
+		PURL:    input.PURL,
+		Tags:    projectTags,
+	}
+}
+
+func mapVulnerability(input notification.Vulnerability) dtrack.Vulnerability {
+	return dtrack.Vulnerability{
+		UUID:            input.UUID,
+		VulnID:          input.VulnID,
+		Source:          input.Source,
+		Title:           input.Title,
+		SubTitle:        input.SubTitle,
+		Description:     input.Description,
+		Recommendation:  input.Recommendation,
+		CVSSV2BaseScore: input.CVSSV2,
+		CVSSV3BaseScore: input.CVSSV3,
 	}
 }

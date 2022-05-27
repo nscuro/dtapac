@@ -12,16 +12,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type analysisService interface {
-	Get(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (dtrack.Analysis, error)
-	Create(context.Context, dtrack.AnalysisRequest) (dtrack.Analysis, error)
-}
-
-type violationAnalysisService interface {
-	Get(context.Context, uuid.UUID, uuid.UUID) (dtrack.ViolationAnalysis, error)
-	Update(context.Context, dtrack.ViolationAnalysisRequest) (dtrack.ViolationAnalysis, error)
-}
-
 type Submitter struct {
 	analysisSvc          analysisService
 	violationAnalysisSvc violationAnalysisService
@@ -176,4 +166,22 @@ func (s Submitter) SubmitViolationAnalysis(ctx context.Context, analysisReq dtra
 	}
 
 	return nil
+}
+
+// analysisService is an interface for parts of the Dependency-Track
+// analysis API to make mocking in tests easier.
+//
+// This interface is implemented by github.com/nscuro/dtrack-client.
+type analysisService interface {
+	Get(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (dtrack.Analysis, error)
+	Create(context.Context, dtrack.AnalysisRequest) (dtrack.Analysis, error)
+}
+
+// violationAnalysisService is an interface for parts of the Dependency-Track
+// violation analysis API to make mocking in tests easier.
+//
+// This interface is implemented by github.com/nscuro/dtrack-client.
+type violationAnalysisService interface {
+	Get(context.Context, uuid.UUID, uuid.UUID) (dtrack.ViolationAnalysis, error)
+	Update(context.Context, dtrack.ViolationAnalysisRequest) (dtrack.ViolationAnalysis, error)
 }
