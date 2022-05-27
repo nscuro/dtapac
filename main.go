@@ -78,6 +78,7 @@ func exec(ctx context.Context, opts options) error {
 		Out: os.Stderr,
 	})
 
+	// Setup Dependency-Track client and verify that we can establish a working connection.
 	dtrackClient, err := dtrack.NewClient(opts.DTrackURL, dtrack.WithAPIKey(opts.DTrackAPIKey))
 	if err != nil {
 		return fmt.Errorf("failed to setup dtrack client: %w", err)
@@ -92,6 +93,7 @@ func exec(ctx context.Context, opts options) error {
 		return fmt.Errorf("failed to fetch version from dependency-track: %w", err)
 	}
 
+	// Setup OPA client and verify that we can establish a working connection.
 	opaClient, err := opa.NewClient(opts.OPAURL)
 	if err != nil {
 		return fmt.Errorf("failed to setup opa client: %w", err)
@@ -108,15 +110,16 @@ func exec(ctx context.Context, opts options) error {
 		return fmt.Errorf("failed to setup auditor: %w", err)
 	}
 
+	eg, egCtx := errgroup.WithContext(ctx)
+
+	// Setup and start API server
 	apiServerAddr := net.JoinHostPort(opts.Host, strconv.FormatUint(uint64(opts.Port), 10))
 	apiServer := api.NewServer(apiServerAddr, auditor, serviceLogger("apiServer", logger))
+	eg.Go(apiServer.Start)
 
 	// Audit results can come from multiple sources (ad-hoc or portfolio-wide analyses).
 	// We keep track of them in a slice and merge them later if necessary.
 	auditResultChans := []<-chan any{apiServer.AuditResultChan()}
-
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(apiServer.Start)
 
 	if opts.WatchBundle != "" {
 		bundleWatcher := opa.NewBundleWatcher(opts.WatchBundle, apiServer.OPAStatusChan(), serviceLogger("bundleWatcher", logger))
@@ -124,21 +127,17 @@ func exec(ctx context.Context, opts options) error {
 		// Listen for bundle updates and trigger a portfolio-wide analysis
 		// if an update was received.
 		triggerChan := make(chan struct{}, 1)
-		eg.Go(func() error {
+		eg.Go(func() (err error) {
 			defer close(triggerChan)
 
-			for revision := range bundleWatcher.Subscribe() {
-				logger.Info().
-					Str("bundle", opts.WatchBundle).
-					Str("revision", revision).
-					Msg("bundle updated")
+			for range bundleWatcher.Subscribe() {
 				select {
 				case triggerChan <- struct{}{}:
 				default:
 				}
 			}
 
-			return nil
+			return
 		})
 
 		// Listen for triggers from the above goroutine and perform a portfolio-wide
