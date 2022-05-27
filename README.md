@@ -11,6 +11,21 @@
 
 ## Introduction
 
+Dependency-Track offers a fairly sophisticated auditing workflow for vulnerabilities and policy violations.
+
+If often found myself wanting a mechanism that lets me make more generalized audit decisions that would affect
+multiple (and sometimes even *all*) projects in my portfolio. At the same time I've dabbled a lot with IaC tools
+that offer versioning via Git and, most importantly, idempotence. A concept that I quickly fell in love with.
+
+It turns out that you can have your cake and eat it too using *policy as code*. 
+The most popular implementation of PaC is probably [Open Policy Agent](https://www.openpolicyagent.org/) (OPA).
+
+## Shortcomings
+
+* **No retries**. If an analysis decision could not be submitted to Dependency-Track for any reason, it won't be retried.
+* **No persistence**. If you stop *dtapac* while it's still processing something, that something is gone.
+* **No access control**. *dtapac* trusts that whatever is inside the notifications it receives is valid. Notifications can be forged. Deploy *dtapac* to an internal network or use a service mesh.
+
 ## Use Cases
 
 ### Duplicate Vulnerabilities
@@ -44,14 +59,13 @@ analysis = res {
 
 Similarly to duplicate vulnerabilities, sometimes a reported vulnerability is just plain a false positive.
 
-
 ```rego
 package dtapac.finding
 
 default analysis = {}
 
 analysis = res {
-    input.component.group = "com.acme"
+    input.component.group == "com.acme"
     input.component.name == "acme-lib"
     input.vulnerability.vulnId == "CVE-20XX-XXXXX"
   

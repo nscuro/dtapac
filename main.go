@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"path"
 	"strconv"
 	"sync"
 	"syscall"
@@ -21,6 +20,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/nscuro/dtapac/internal/api"
+	"github.com/nscuro/dtapac/internal/apply"
 	"github.com/nscuro/dtapac/internal/audit"
 	"github.com/nscuro/dtapac/internal/opa"
 )
@@ -103,28 +103,13 @@ func exec(ctx context.Context, opts options) error {
 		return fmt.Errorf("opa health check failed: %w", err)
 	}
 
-	var (
-		findingAuditor   audit.FindingAuditor
-		violationAuditor audit.ViolationAuditor
-	)
-	if opts.FindingPolicyPath != "" {
-		findingAuditor = func(finding audit.Finding) (analysis audit.FindingAnalysis, auditErr error) {
-			auditErr = opaClient.Decision(context.Background(), path.Join(opts.FindingPolicyPath, "/analysis"), finding, &analysis)
-			return
-		}
-	}
-	if opts.ViolationPolicyPath != "" {
-		violationAuditor = func(violation audit.Violation) (analysis audit.ViolationAnalysis, auditErr error) {
-			auditErr = opaClient.Decision(context.Background(), path.Join(opts.ViolationPolicyPath, "/analysis"), violation, &analysis)
-			return
-		}
-	}
-	if findingAuditor == nil && violationAuditor == nil {
-		return fmt.Errorf("neither a findings- nor a violations auditor could be setup")
+	auditor, err := audit.NewOPAAuditor(opaClient, opts.FindingPolicyPath, opts.ViolationPolicyPath, serviceLogger("auditor", logger))
+	if err != nil {
+		return fmt.Errorf("failed to setup auditor: %w", err)
 	}
 
 	apiServerAddr := net.JoinHostPort(opts.Host, strconv.FormatUint(uint64(opts.Port), 10))
-	apiServer := api.NewServer(apiServerAddr, findingAuditor, violationAuditor, serviceLogger("apiServer", logger))
+	apiServer := api.NewServer(apiServerAddr, auditor, serviceLogger("apiServer", logger))
 
 	// Audit results can come from multiple sources (ad-hoc or portfolio-wide analyses).
 	// We keep track of them in a slice and merge them later if necessary.
@@ -175,88 +160,62 @@ func exec(ctx context.Context, opts options) error {
 				}
 
 				for i, project := range projects {
-					if findingAuditor != nil {
-						logger.Debug().Str("project", project.UUID.String()).Msg("fetching findings")
-						findings, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Finding], error) {
-							return dtrackClient.Finding.GetAll(egCtx, project.UUID, true, po)
-						})
-						if err != nil {
-							logger.Error().Err(err).
-								Str("project", project.UUID.String()).
-								Msg("failed to fetch findings")
-							continue
-						}
-
-						for j := range findings {
-							finding := audit.Finding{
-								Component:     findings[j].Component,
-								Project:       projects[i],
-								Vulnerability: findings[j].Vulnerability,
-							}
-							logger.Debug().Object("finding", finding).Msg("auditing finding")
-							analysis, err := findingAuditor(finding)
-							if err != nil {
-								logger.Error().Err(err).
-									Object("finding", finding).
-									Msg("failed to audit finding")
-								continue
-							}
-							if analysis != (audit.FindingAnalysis{}) {
-								auditChan <- dtrack.AnalysisRequest{
-									Component:     finding.Component.UUID,
-									Project:       finding.Project.UUID,
-									Vulnerability: finding.Vulnerability.UUID,
-									State:         analysis.State,
-									Justification: analysis.Justification,
-									Response:      analysis.Response,
-									Details:       analysis.Details,
-									Comment:       analysis.Comment,
-									Suppressed:    analysis.Suppress,
-								}
-							}
-						}
-					} else {
-						logger.Warn().Msg("findings auditing is disabled, skipping")
+					logger.Debug().Str("project", project.UUID.String()).Msg("fetching findings")
+					findings, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Finding], error) {
+						return dtrackClient.Finding.GetAll(egCtx, project.UUID, true, po)
+					})
+					if err != nil {
+						logger.Error().Err(err).
+							Str("project", project.UUID.String()).
+							Msg("failed to fetch findings")
+						continue
 					}
 
-					if violationAuditor != nil {
-						logger.Debug().Str("project", project.UUID.String()).Msg("fetching policy violations")
-						violations, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.PolicyViolation], error) {
-							return dtrackClient.PolicyViolation.GetAllForProject(egCtx, project.UUID, false, po)
-						})
-						if err != nil {
-							logger.Error().Err(err).
-								Str("project", project.UUID.String()).
-								Msg("failed to fetch policy violations")
-							continue
+					for j := range findings {
+						finding := audit.Finding{
+							Component:     findings[j].Component,
+							Project:       projects[i],
+							Vulnerability: findings[j].Vulnerability,
 						}
 
-						for j := range violations {
-							violation := audit.Violation{
-								Component:       violations[j].Component,
-								Project:         violations[i].Project,
-								PolicyViolation: violations[i],
-							}
-							logger.Debug().Object("violation", violation).Msg("auditing violation")
-							analysis, err := violationAuditor(violation)
-							if err != nil {
-								logger.Error().Err(err).
-									Object("violation", violation).
-									Msg("failed to audit violation")
-								continue
-							}
-							if analysis != (audit.ViolationAnalysis{}) {
-								auditChan <- dtrack.ViolationAnalysisRequest{
-									Component:       violation.Component.UUID,
-									PolicyViolation: violations[i].UUID,
-									State:           analysis.State,
-									Comment:         analysis.Comment,
-									Suppressed:      analysis.Suppress,
-								}
-							}
+						analysisReq, auditErr := auditor.AuditFinding(context.Background(), finding)
+						if auditErr == nil && analysisReq != (dtrack.AnalysisRequest{}) {
+							auditChan <- analysisReq
+						} else if auditErr != nil {
+							logger.Error().Err(auditErr).
+								Object("finding", finding).
+								Msg("failed to audit finding")
+							continue
 						}
-					} else {
-						logger.Warn().Msg("violations auditing is disabled, skipping")
+					}
+
+					logger.Debug().Str("project", project.UUID.String()).Msg("fetching policy violations")
+					violations, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.PolicyViolation], error) {
+						return dtrackClient.PolicyViolation.GetAllForProject(egCtx, project.UUID, false, po)
+					})
+					if err != nil {
+						logger.Error().Err(err).
+							Str("project", project.UUID.String()).
+							Msg("failed to fetch policy violations")
+						continue
+					}
+
+					for j := range violations {
+						violation := audit.Violation{
+							Component:       violations[j].Component,
+							Project:         violations[i].Project,
+							PolicyViolation: violations[i],
+						}
+
+						analysisReq, auditErr := auditor.AuditViolation(context.Background(), violation)
+						if auditErr == nil && analysisReq != (dtrack.ViolationAnalysisRequest{}) {
+							auditChan <- analysisReq
+						} else if auditErr != nil {
+							logger.Error().Err(auditErr).
+								Object("violation", violation).
+								Msg("failed to audit violation")
+							continue
+						}
 					}
 				}
 
@@ -272,6 +231,9 @@ func exec(ctx context.Context, opts options) error {
 	}
 
 	// If we have more than one channel for audit results, merge them into one.
+	// It'd be preferable if we only ever had to deal with one, but that is a little
+	// tricky right now when it comes to cancellation and closing channels in the
+	// correct order. Worth revisiting later.
 	var auditResultChan <-chan any
 	if len(auditResultChans) == 1 {
 		auditResultChan = auditResultChans[0]
@@ -279,23 +241,23 @@ func exec(ctx context.Context, opts options) error {
 		auditResultChan = merge(auditResultChans...)
 	}
 
-	submitter := audit.NewSubmitter(dtrackClient.Analysis, serviceLogger("submitter", logger))
+	applier := apply.NewApplier(dtrackClient.Analysis, dtrackClient.ViolationAnalysis, serviceLogger("applier", logger))
 	eg.Go(func() error {
 		for auditResult := range auditResultChan {
 			switch res := auditResult.(type) {
 			case dtrack.AnalysisRequest:
-				submitErr := submitter.SubmitAnalysis(egCtx, res)
+				submitErr := applier.ApplyAnalysis(egCtx, res)
 				if submitErr != nil {
 					logger.Error().Err(submitErr).
 						Interface("request", res).
-						Msg("failed to submit analysis request")
+						Msg("failed to apply analysis request")
 				}
 			case dtrack.ViolationAnalysisRequest:
-				submitErr := submitter.SubmitViolationAnalysis(egCtx, res)
+				submitErr := applier.ApplyViolationAnalysis(egCtx, res)
 				if submitErr != nil {
 					logger.Error().Err(submitErr).
 						Interface("request", res).
-						Msg("failed to submit violation analysis request")
+						Msg("failed to apply violation analysis request")
 				}
 			}
 		}

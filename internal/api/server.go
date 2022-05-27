@@ -22,7 +22,7 @@ type Server struct {
 	logger          zerolog.Logger
 }
 
-func NewServer(addr string, findingAuditor audit.FindingAuditor, violationAuditor audit.ViolationAuditor, logger zerolog.Logger) *Server {
+func NewServer(addr string, auditor audit.Auditor, logger zerolog.Logger) *Server {
 	auditChan := make(chan any, 1)
 	opaStatusChan := make(chan opa.Status, 1)
 
@@ -32,7 +32,7 @@ func NewServer(addr string, findingAuditor audit.FindingAuditor, violationAudito
 	r.Use(loggerMiddleware(logger))
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(middleware.AllowContentType("application/json"))
-		r.Post("/dtrack/notification", handleNotification(auditChan, findingAuditor, violationAuditor))
+		r.Post("/dtrack/notification", handleNotification(auditChan, auditor))
 		r.Post("/opa/status", handleOPAStatus(opaStatusChan))
 	})
 

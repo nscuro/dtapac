@@ -1,4 +1,4 @@
-package audit
+package apply
 
 import (
 	"context"
@@ -12,23 +12,25 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type Submitter struct {
+// Applier applies desired analysis states to a Dependency-Track instance.
+type Applier struct {
 	analysisSvc          analysisService
 	violationAnalysisSvc violationAnalysisService
 	locker               *locker.Locker
 	logger               zerolog.Logger
 }
 
-func NewSubmitter(analysisService analysisService, logger zerolog.Logger) *Submitter {
-	return &Submitter{
-		analysisSvc: analysisService,
-		locker:      locker.New(),
-		logger:      logger,
+func NewApplier(analysisSvc analysisService, violationAnalysisSvc violationAnalysisService, logger zerolog.Logger) *Applier {
+	return &Applier{
+		analysisSvc:          analysisSvc,
+		violationAnalysisSvc: violationAnalysisSvc,
+		locker:               locker.New(),
+		logger:               logger,
 	}
 }
 
-// SubmitAnalysis submits a dtrack.AnalysisRequest to Dependency-Track.
-func (s Submitter) SubmitAnalysis(ctx context.Context, analysisReq dtrack.AnalysisRequest) error {
+// ApplyAnalysis applies an analysis.
+func (s Applier) ApplyAnalysis(ctx context.Context, analysisReq dtrack.AnalysisRequest) error {
 	lockName := fmt.Sprintf("finding:%s:%s:%s", analysisReq.Component, analysisReq.Project, analysisReq.Vulnerability)
 	s.locker.Lock(lockName)
 	defer func() {
@@ -102,8 +104,8 @@ func (s Submitter) SubmitAnalysis(ctx context.Context, analysisReq dtrack.Analys
 	return nil
 }
 
-// SubmitViolationAnalysis submits a dtrack.ViolationAnalysisRequest to Dependency-Track.
-func (s Submitter) SubmitViolationAnalysis(ctx context.Context, analysisReq dtrack.ViolationAnalysisRequest) error {
+// ApplyViolationAnalysis applies a violation analysis.
+func (s Applier) ApplyViolationAnalysis(ctx context.Context, analysisReq dtrack.ViolationAnalysisRequest) error {
 	lockName := fmt.Sprintf("violation:%s:%s", analysisReq.Component, analysisReq.PolicyViolation)
 	s.locker.Lock(lockName)
 	defer func() {

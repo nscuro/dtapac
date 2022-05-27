@@ -12,6 +12,8 @@ type contextKey string
 
 var contextKeyLogger = contextKey("logger")
 
+// loggerMiddleware injects a logger into the request context.
+// The logger has preset fields for request path and request ID.
 func loggerMiddleware(parent zerolog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {

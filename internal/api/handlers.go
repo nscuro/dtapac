@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,7 +14,7 @@ import (
 	"github.com/nscuro/dtapac/internal/opa"
 )
 
-func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAuditor, violationAuditor audit.ViolationAuditor) http.HandlerFunc {
+func handleNotification(auditChan chan<- any, auditor audit.Auditor) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		logger := getRequestLogger(r)
 
@@ -32,11 +33,6 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 
 		switch subject := n.Subject.(type) {
 		case *notification.NewVulnerabilitySubject:
-			if findingAuditor == nil {
-				logger.Warn().Msg("received new vulnerability notification, but findings auditing is disabled")
-				break
-			}
-
 			for i := range subject.AffectedProjects {
 				finding := audit.Finding{
 					Component:     mapComponent(subject.Component),
@@ -44,59 +40,24 @@ func handleNotification(auditChan chan<- any, findingAuditor audit.FindingAudito
 					Vulnerability: mapVulnerability(subject.Vulnerability),
 				}
 
-				logger.Debug().Object("finding", finding).Msg("auditing finding")
-				analysis, auditErr := findingAuditor(finding)
-				if auditErr == nil {
-					if analysis != (audit.FindingAnalysis{}) {
-						logger.Debug().Object("analysis", analysis).Msg("received finding analysis")
-
-						auditChan <- dtrack.AnalysisRequest{
-							Component:     finding.Component.UUID,
-							Project:       finding.Project.UUID,
-							Vulnerability: finding.Vulnerability.UUID,
-							State:         analysis.State,
-							Justification: analysis.Justification,
-							Response:      analysis.Response,
-							Details:       analysis.Details,
-							Comment:       analysis.Comment,
-							Suppressed:    analysis.Suppress,
-						}
-					} else {
-						logger.Debug().Object("finding", finding).Msg("finding is not covered by policy")
-					}
-				} else {
+				analysisReq, auditErr := auditor.AuditFinding(context.Background(), finding)
+				if auditErr == nil && analysisReq != (dtrack.AnalysisRequest{}) {
+					auditChan <- analysisReq
+				} else if auditErr != nil {
 					logger.Error().Err(auditErr).Object("finding", finding).Msg("failed to audit finding")
 				}
 			}
 		case *notification.PolicyViolationSubject:
-			if violationAuditor == nil {
-				logger.Warn().Msg("received policy violation notification, but violations auditing is disabled")
-				break
-			}
-
 			violation := audit.Violation{
 				Component:       mapComponent(subject.Component),
 				Project:         mapProject(subject.Project),
 				PolicyViolation: mapPolicyViolation(subject.PolicyViolation),
 			}
 
-			logger.Debug().Object("violation", violation).Msg("auditing violation")
-			analysis, auditErr := violationAuditor(violation)
-			if auditErr == nil {
-				if analysis != (audit.ViolationAnalysis{}) {
-					logger.Debug().Object("analysis", analysis).Msg("received violation analysis")
-
-					auditChan <- dtrack.ViolationAnalysisRequest{
-						Component:       subject.Component.UUID,
-						PolicyViolation: subject.PolicyViolation.UUID,
-						State:           analysis.State,
-						Comment:         analysis.Comment,
-						Suppressed:      analysis.Suppress,
-					}
-				} else {
-					logger.Debug().Object("violation", violation).Msg("violation is not covered by policy")
-				}
-			} else {
+			analysisReq, auditErr := auditor.AuditViolation(context.Background(), violation)
+			if auditErr == nil && analysisReq != (dtrack.ViolationAnalysisRequest{}) {
+				auditChan <- analysisReq
+			} else if auditErr != nil {
 				logger.Error().Err(auditErr).Object("violation", violation).Msg("failed to audit violation")
 			}
 		default:
