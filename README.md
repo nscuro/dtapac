@@ -7,60 +7,85 @@
 *Audit Dependency-Track findings and policy violations via policy as code*
 
 > Consider this project to be a proof-of-concept. It is not very sophisticated (yet?), but it gets the job done.
-> Try it in a test environment first, *do not* skip this and run it in production!
+> Try it in a test environment first, *do not* skip this and run it in production without prior testing!
 
 ## Introduction
 
-### Use Cases
+## Use Cases
 
-#### Duplicate Vulnerabilities
+### Duplicate Vulnerabilities
+
+It can happen that multiple vulnerability sources report separate issues for the same vulnerability.
+For example, a CVE and a GitHub advisory may be about the same vulnerability, but both are reported separately.
+This skews the risk scoring and increases manual auditing efforts, especially if multiple projects are affected by this.
+
+While Dependency-Track [will support](https://github.com/DependencyTrack/dependency-track/issues/1642) deduplication in 
+a future release, for the time being it may be desirable to suppress known duplicates throughout the entire portfolio.
 
 ```rego
+package dtapac.finding
+
+default analysis = {}
+
 analysis = res {
-    duplicatedVuln := {
+    duplicate := {
         "6795ec44-f810-47aa-a22e-5d817e52cbdc": "GHSA-36p3-wjmg-h94x",
-    }[vuln.vulnId]
+    }[input.vulnerability.vulnId]
     
     res := {
         "state": "FALSE_POSITIVE",
-        "comment": sprintf("Duplicate of %s.", [duplicatedVuln]),
+        "comment": sprintf("Duplicate of %s.", [duplicate]),
         "suppress": true,
     }
 }
 ```
 
-#### False Positives
+### False Positives
+
+Similarly to duplicate vulnerabilities, sometimes a reported vulnerability is just plain a false positive.
+
 
 ```rego
+package dtapac.finding
+
+default analysis = {}
+
 analysis = res {
-    component.name == "acme-lib"
-    vulnerability.vulnId == "CVE-20XX-XXXXX"
+    input.component.group = "com.acme"
+    input.component.name == "acme-lib"
+    input.vulnerability.vulnId == "CVE-20XX-XXXXX"
   
     res := {
-      "state": "FALSE_POSITIVE"
+      "state": "FALSE_POSITIVE",
+      "details": sprintf("%s does not affect %s", [input.vulnerability.vulnId, input.component.name]),
       "suppress": true,
     }
 }
 ```
 
-## Usage
+### Ignoring of vulnerabilities in test-only dependencies
 
-```
-USAGE
-  dtapac [FLAGS...]
+Depending on how you track risk, you may choose to ignore vulnerabilities affecting components that are exclusively
+used in testing. A common example would be embedded databases that frequently have vulnerabilities, but are
+never used in a production setting.
 
-Audit Dependency-Track findings and policy violations via policy as code.
+```rego
+package dtapac.finding
 
-FLAGS
-  -config ...                 Path to config file
-  -dtrack-apikey ...          Dependency-Track API key
-  -dtrack-url ...             Dependency-Track API server URL
-  -finding-policy-path ...    Policy path for finding analysis
-  -host 0.0.0.0               Host to listen on
-  -opa-url ...                Open Policy Agent URL
-  -port 8080                  Port to listen on
-  -violation-policy-path ...  Policy path for violation analysis
-  -watch-bundle ...           OPA bundle to watch
+default analysis = {}
+
+analysis = res {
+    input.project.name == "acme-app"
+    input.component.group == "com.h2database"
+    input.component.name == "h2"
+    
+    res := {
+        "state": "NOT_AFFECTED",
+        "justification": "CODE_NOT_REACHABLE",
+        "details": "h2 is exclusively used for unit tests.",
+        "suppress": true,
+    }
+}
 ```
 
 ## How it works
@@ -127,6 +152,26 @@ sequenceDiagram
         end
     end
 
+```
+
+## Usage
+
+```
+USAGE
+  dtapac [FLAGS...]
+
+Audit Dependency-Track findings and policy violations via policy as code.
+
+FLAGS
+  -config ...                 Path to config file
+  -dtrack-apikey ...          Dependency-Track API key
+  -dtrack-url ...             Dependency-Track API server URL
+  -finding-policy-path ...    Policy path for finding analysis
+  -host 0.0.0.0               Host to listen on
+  -opa-url ...                Open Policy Agent URL
+  -port 8080                  Port to listen on
+  -violation-policy-path ...  Policy path for violation analysis
+  -watch-bundle ...           OPA bundle to watch
 ```
 
 ## Deployment
