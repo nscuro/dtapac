@@ -65,6 +65,37 @@ FLAGS
 
 ```
 
+## How it works
+
+### Ad-hoc auditing through notifications
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client
+    Client->>Dependency-Track: Upload BOM
+    Dependency-Track->>Dependency-Track: Analyze BOM
+    alt New Vulnerability identified
+        Dependency-Track->>dtapac: NEW_VULNERABILITY notification
+    else Policy Violation identified
+        Dependency-Track->>dtapac: POLICY_VIOLATION notification
+    end
+    dtapac->>OPA: Query analysis decision
+    OPA->>OPA: Evaluate policy
+    OPA->>dtapac: Analysis decision
+    dtapac->>Dependency-Track: Query existing analysis
+    Dependency-Track->>dtapac: Analysis
+    dtapac->>dtapac: Compare analyses
+    opt Analysis has changed
+        dtapac->>Dependency-Track: Update analysis
+    end
+
+```
+
+### Portfolio auditing on policy change
+
+TBD
+
 ## Deployment
 
 ### Docker Compose
