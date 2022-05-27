@@ -1,0 +1,136 @@
+project_name: dtapac
+
+before:
+  hooks:
+  - go mod tidy
+
+gomod:
+  proxy: true
+
+builds:
+- env:
+  - CGO_ENABLED=0
+  goos:
+  - linux
+  - windows
+  - darwin
+  goarch:
+  - amd64
+  - arm64
+  flags: -trimpath
+  ldflags: -s -w
+  mod_timestamp: "{{ .CommitTimestamp }}"
+
+sboms:
+- documents:
+  - "{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}.bom.json"
+  artifacts: binary
+  cmd: "cyclonedx-gomod"
+  args: [ "app", "-licenses", "-std", "-json", "-output", "$document", "../" ]
+  env:
+  - GOARCH={{ .Arch }}
+  - GOOS={{ .Os }}
+
+signs:
+- cmd: cosign
+  env:
+  - COSIGN_EXPERIMENTAL=1
+  certificate: '${artifact}.pem'
+  args:
+  - sign-blob
+  - '--output-certificate=${certificate}'
+  - '--output-signature=${signature}'
+  - '${artifact}'
+  artifacts: checksum
+  output: true
+
+dockers:
+- goos: linux
+  goarch: amd64
+  dockerfile: Dockerfile.goreleaser
+  use: buildx
+  image_templates:
+  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-amd64"
+  build_flag_templates:
+  - "--platform=linux/amd64"
+  - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+  - "--label=org.opencontainers.image.version={{ .Tag }}"
+  - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+  - "--label=org.opencontainers.image.created={{ .Date }}"
+  - "--label=org.opencontainers.image.source={{ .GitURL }}"
+- goos: linux
+  goarch: arm64
+  dockerfile: Dockerfile.goreleaser
+  use: buildx
+  image_templates:
+  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-arm64"
+  build_flag_templates:
+  - "--platform=linux/arm64"
+  - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+  - "--label=org.opencontainers.image.version={{ .Tag }}"
+  - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+  - "--label=org.opencontainers.image.created={{ .Date }}"
+  - "--label=org.opencontainers.image.source={{ .GitURL }}"
+
+docker_manifests:
+- name_template: "ghcr.io/nscuro/{{ .ProjectName }}:latest"
+  image_templates:
+  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-amd64"
+  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-arm64"
+- name_template: "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}"
+  image_templates:
+  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-amd64"
+  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-arm64"
+- name_template: "{{ .Env.docker_repository_owner}}/{{ .ProjectName }}:v{{ .Major }}"
+  image_templates:
+  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-amd64"
+  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-arm64"
+- name_template: "ghcr.io/nscuro/{{ .ProjectName }}:v{{ .Major }}.{{ .Minor }}"
+  image_templates:
+  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-amd64"
+  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-arm64"
+
+docker_signs:
+- cmd: cosign
+  env:
+  - COSIGN_EXPERIMENTAL=1
+  artifacts: all
+  output: true
+  args:
+  - 'sign'
+  - '${artifact}'
+
+archives:
+- format_overrides:
+  - goos: windows
+    format: zip
+
+release:
+  prerelease: auto
+
+milestones:
+- name_template: "{{ .Tag }}"
+  close: true
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+  - title: Features
+    regexp: "^.*feat[(\\w)]*:+.*$"
+    order: 0
+  - title: Fixes
+    regexp: "^.*fix[(\\w)]*:+.*$"
+    order: 1
+  - title: Building and Packaging
+    regexp: "^.*build[(\\w)]*:+.*$"
+    order: 2
+  - title: Documentation
+    regexp: "^.*docs[(\\w)]*:+.*$"
+    order: 3
+  - title: Others
+    order: 999
+  filters:
+    exclude:
+    - '^test:'
+    - '^Merge '

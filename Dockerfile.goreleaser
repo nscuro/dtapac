@@ -1,0 +1,7 @@
+FROM alpine:3.16@sha256:686d8c9dfa6f3ccfc8230bc3178d23f84eeaf7e457f36f271ab1acc53015037c as build
+RUN apk add --no-cache ca-certificates
+
+FROM scratch
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY dtapac /
+ENTRYPOINT ["/dtapac"]
