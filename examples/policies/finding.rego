@@ -3,7 +3,14 @@ package dtapac.finding
 default analysis = {}
 
 analysis = res {
-    input.component.group == "org.apache.camel"
+    input.project.name == "acme-test"
+
+    res := {
+        "comment": sprintf("%s is a test project that isn't deployed anywhere.", [input.project.name]),
+        "suppress": true,
+    }
+} else = res {
+    input.component.group == "org.apache.camel" 
     input.component.name == "camel-jetty9"
     input.vulnerability.vulnId = ["CVE-2019-0188"][_]
 
@@ -12,10 +19,8 @@ analysis = res {
         "details": "Affects camel-xmljson, but not camel-jetty9.",
         "suppress": true
     }
-}
-
-analysis = res {
-    input.project.name == "Dependency-Track"
+} else = res {
+    input.project.name == "acme-app"
     input.component.group == "com.h2database"
     input.component.name == "h2"
 
