@@ -26,9 +26,13 @@ docker:
 	docker build -t nscuro/dtapac -f Dockerfile .
 .PHONY: docker
 
-example-bundle:
+build-example-bundle:
 	opa build -o ./examples/bundles/dtapac.tar.gz -r $(shell date | sha256sum | cut -d ' ' -f 1) ./examples/policies
 .PHONY: example-bundle
+
+test-example-policies:
+	opa test -v ./examples/policies
+.PHONY: test-example-policies
 
 all: clean build test docker
 .PHONY: all
