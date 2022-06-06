@@ -9,7 +9,7 @@ require (
 	github.com/nscuro/dtrack-client v0.5.1-0.20220527172613-f007ae40cea2
 	github.com/peterbourgon/ff/v3 v3.1.2
 	github.com/rs/zerolog v1.26.1
-	github.com/stretchr/testify v1.7.1
+	github.com/stretchr/testify v1.7.2
 	github.com/testcontainers/testcontainers-go v0.13.0
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 )
@@ -50,5 +50,5 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
