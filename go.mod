@@ -8,7 +8,7 @@ require (
 	github.com/moby/locker v1.0.1
 	github.com/nscuro/dtrack-client v0.5.1-0.20220606172247-3936e6994f3e
 	github.com/peterbourgon/ff/v3 v3.1.2
-	github.com/rs/zerolog v1.26.1
+	github.com/rs/zerolog v1.27.0
 	github.com/stretchr/testify v1.7.2
 	github.com/testcontainers/testcontainers-go v0.13.0
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
@@ -31,6 +31,8 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
+	github.com/mattn/go-colorable v0.1.12 // indirect
+	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/moby/sys/mount v0.2.0 // indirect
 	github.com/moby/sys/mountinfo v0.5.0 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
