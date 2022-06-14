@@ -39,10 +39,7 @@ Think of *dtapac* as a bridge between Dependency-Track and OPA.
 
 The main way that *dtapac* uses to integrate with Dependency-Track is by consuming 
 [notifications](https://docs.dependencytrack.org/integrations/notifications/). When receiving a `NEW_VULNERABILITY` or 
-`POLICY_VIOLATION` notification, *dtapac* will immediately query OPA for an analysis decision. *dtapac* will only submit 
-the resulting analysis if it differs from what's already recorded in Dependency-Track. This ensures that the audit trail 
-won't be cluttered with redundant information, even if *dtapac* receives multiple notifications for the same finding or 
-policy violation.
+`POLICY_VIOLATION` notification, *dtapac* will immediately query OPA for an analysis decision. 
 
 ```mermaid
 sequenceDiagram
@@ -66,12 +63,14 @@ sequenceDiagram
     end
 ```
 
+*dtapac* will only submit the resulting analysis if it differs from what's already recorded in Dependency-Track. 
+This ensures that the audit trail won't be cluttered with redundant information, even if *dtapac* receives multiple 
+notifications for the same finding or policy violation.
+
 ### Portfolio auditing on policy change
 
 If configured, *dtapac* can listen for [status updates](https://www.openpolicyagent.org/docs/latest/management-status/) from OPA. 
-*dtapac* will keep track of the revision of the policy bundle, and trigger a portfolio-wide analysis if the revision changed. 
-This makes it possible to have new policies applied to the entire portfolio shortly after publishing them, without the 
-need to restart any service or edit files on any server.
+*dtapac* will keep track of the revision of the policy bundle, and trigger a portfolio-wide analysis if the revision changed.
 
 ```mermaid
 sequenceDiagram
@@ -104,6 +103,9 @@ sequenceDiagram
         end
     end
 ```
+
+This makes it possible to have new policies applied to the entire portfolio shortly after publishing them, without the
+need to restart any service or edit files on any server.
 
 ### Shortcomings
 
