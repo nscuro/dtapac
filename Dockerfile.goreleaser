@@ -4,4 +4,5 @@ RUN apk add --no-cache ca-certificates
 FROM scratch
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY dtapac /
+USER 1000
 ENTRYPOINT ["/dtapac"]

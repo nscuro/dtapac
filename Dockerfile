@@ -9,4 +9,5 @@ RUN make install
 FROM scratch
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /go/bin/dtapac /
+USER 1000
 ENTRYPOINT ["/dtapac"]
