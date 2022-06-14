@@ -143,6 +143,22 @@ See [`docker-compose.yml`](./docker-compose.yml).
 
 ## Writing Policies
 
+### Overview
+
+Please take a moment to read a little about [OPA](https://www.openpolicyagent.org/docs/latest/) and its 
+[policy language Rego](https://www.openpolicyagent.org/docs/latest/policy-language/).
+
+Policies for *dtapac* must adhere to the following guidelines:
+
+1. Result MUST be named `analysis`
+2. Result MUST be an object
+3. There MUST be exactly one result named `analysis`
+   * In case of conflicting rules, use [`else`](https://www.openpolicyagent.org/docs/latest/faq/#statement-order)
+4. If no rule is matched, an empty object MUST be returned
+   * Use `default analysis = {}` for this
+
+Have a look at the example policies at [`./examples/policies`](./examples/policies) if you need inspiration.
+
 ### Inputs
 
 #### Finding
@@ -256,15 +272,28 @@ TBD
 
 ## Policy Management
 
-It's recommended that you:
+This section is for folks who do not have prior experience with PaC. If you do, and you already have well-established
+processes around it, you can skip this section.
 
-* Maintain your policy in a Git repository
-* Write [tests](https://www.openpolicyagent.org/docs/latest/policy-testing/) for your policy(!)
-* Package your policy as [bundle](https://www.openpolicyagent.org/docs/latest/management-bundles/)
+It is generally a good idea to keep your policies in their own Git repository. Treat it just like any other code
+in your SDLC:
+
+* Write tests
+* Create pull requests
+* Perform code reviews
+* Have a CI pipeline
+
+In your policy CI pipeline, you should:
+
+* [Type check](https://www.openpolicyagent.org/docs/latest/schemas/) your policies
+  * You can use the input schemas in [`./examples/schemas`](./examples/policies)
+  * If you want to write your own schemas, be aware of the [limitations](https://www.openpolicyagent.org/docs/latest/schemas/#limitations)
+* [Test](https://www.openpolicyagent.org/docs/latest/policy-testing/) your policies
+* Package your policies into a [bundle](https://www.openpolicyagent.org/docs/latest/management-bundles/#bundle-file-format)
   * Always set a `revision` (using the Git commit makes sense here)
-  * e.g. `opa build -o mybundle.tar.gz -r $(git rev-parse HEAD) /path/to/policy`
-* Host your bundle on a service [compatible](https://www.openpolicyagent.org/docs/latest/management-bundles/#implementations) with OPA's bundle API
-* [Configure](https://www.openpolicyagent.org/docs/latest/management-bundles/#bundle-service-api) OPA to pull bundles from that service
+* (Optional) Push the bundle to a server [compatible](https://www.openpolicyagent.org/docs/latest/management-bundles/#implementations) with OPA's bundle API
+
+Check out the [*Policy CI*](./.github/workflows/policy-ci.yml) workflow if you need some inspiration. 
 
 ## Use Cases
 
