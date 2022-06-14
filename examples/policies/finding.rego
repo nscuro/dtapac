@@ -3,10 +3,18 @@ package dtapac.finding
 default analysis = {}
 
 analysis = res {
+    regex.match("^[a-f\\d]{8}-[a-f\\d]{4}-[a-f\\d]{4}-[a-f\\d]{4}-[a-f\\d]{12}$", input.vulnerability.vulnId)
+    input.vulnerability.source == "OSSINDEX"
+
+    res := {
+        "details": "Legacy OSS Index vulnerability, see https://ossindex.sonatype.org/updates-notice.",
+        "suppress": true,
+    }
+} else = res {
     input.project.name == "acme-test"
 
     res := {
-        "comment": sprintf("%s is a test project that isn't deployed anywhere.", [input.project.name]),
+        "details": sprintf("%s is a test project that isn't deployed anywhere.", [input.project.name]),
         "suppress": true,
     }
 } else = res {

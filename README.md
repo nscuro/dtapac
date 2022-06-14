@@ -6,25 +6,43 @@
 
 *Audit Dependency-Track findings and policy violations via policy as code*
 
-> Consider this project to be a proof-of-concept. It is not very sophisticated (yet?), but it gets the job done.
-> Try it in a test environment first, *do not* skip this and run it in production without prior testing!
+> Consider this project to be a proof-of-concept. It is not very sophisticated, but it gets the job done.
+> Try it in a test environment first. *Do not skip this step* and run it in production without prior testing!
 
 ## Introduction
 
-Dependency-Track offers a fairly sophisticated auditing workflow for vulnerabilities and policy violations.
+[Dependency-Track](https://dependencytrack.org/) offers a fairly sophisticated auditing workflow for vulnerabilities 
+and policy violations.
 
-If often found myself wanting a mechanism that lets me make more generalized audit decisions that would affect
-multiple (and sometimes even *all*) projects in my portfolio. At the same time I've dabbled a lot with IaC tools
-that offer versioning via Git and, most importantly, idempotence. A concept that I quickly fell in love with.
+I often found myself wanting a mechanism that lets me make more generalized audit decisions that would affect
+multiple (and sometimes even *all*) projects in my portfolio. While the most common use case for something like this
+is definitely suppressing false positives, there are times when other audit actions are desirable as well.
+A [suppression file](https://jeremylong.github.io/DependencyCheck/general/suppression.html) as seen in projects like 
+[Dependency-Check](https://jeremylong.github.io/DependencyCheck/) simply won't cut it.
 
-It turns out that you can have your cake and eat it too using *policy as code*. 
-The most popular implementation of PaC is probably [Open Policy Agent](https://www.openpolicyagent.org/) (OPA).
+I've written a fair share of tools that provide the desired functionality based on some kind of configuration file 
+(mostly YAML), but I quickly came to the realization that configuration files are too limiting for my needs. 
+Not only are they not a good fit for dynamic decisions, they are also a pain to test.
+
+It turns out that you can have your cake and eat it too using *policy as code*. The most popular implementation of PaC 
+probably being [Open Policy Agent](https://www.openpolicyagent.org/) (OPA). 
+
+Think of *dtapac* as a bridge between Dependency-Track and OPA.
+
+> Note that *dtapac* as it stands now is *not* intended for performing all auditing through it. 
+> Don't use it for decisions that are project-specific. Use it for decisions that are likely to affects larger
+> parts of your portfolio. A few sample [use cases](#use-cases) are listed at the bottom of this document.
 
 ## How it works
 
 ### Ad-hoc auditing through notifications
 
-When receiving a `NEW_VULNERABILITY` or `POLICY_VIOLATION` notification, *dtapac* will immediately query OPA for an analysis decision. *dtapac* will only submit the resulting analysis if it differs from what's already recorded in Dependency-Track. This ensures that the audit trail won't be cluttered with redundant information, even if *dtapac* receives multiple notifications for the same finding or policy violation.
+The main way that *dtapac* uses to integrate with Dependency-Track is by consuming 
+[notifications](https://docs.dependencytrack.org/integrations/notifications/). When receiving a `NEW_VULNERABILITY` or 
+`POLICY_VIOLATION` notification, *dtapac* will immediately query OPA for an analysis decision. *dtapac* will only submit 
+the resulting analysis if it differs from what's already recorded in Dependency-Track. This ensures that the audit trail 
+won't be cluttered with redundant information, even if *dtapac* receives multiple notifications for the same finding or 
+policy violation.
 
 ```mermaid
 sequenceDiagram
@@ -46,12 +64,14 @@ sequenceDiagram
     opt Analysis has changed
         dtapac->>Dependency-Track: Update analysis
     end
-
 ```
 
 ### Portfolio auditing on policy change
 
-If configured, *dtapac* can listen for [status updates](https://www.openpolicyagent.org/docs/latest/management-status/) from OPA. *dtapac* will keep track of the revision of the policy bundle, and trigger a portfolio-wide analysis if the revision changed. This makes it possible to have new policies applied to the entire portfolio shortly after publishing them, without the need to restart any service or edit files on any server.
+If configured, *dtapac* can listen for [status updates](https://www.openpolicyagent.org/docs/latest/management-status/) from OPA. 
+*dtapac* will keep track of the revision of the policy bundle, and trigger a portfolio-wide analysis if the revision changed. 
+This makes it possible to have new policies applied to the entire portfolio shortly after publishing them, without the 
+need to restart any service or edit files on any server.
 
 ```mermaid
 sequenceDiagram
@@ -83,10 +103,11 @@ sequenceDiagram
             end
         end
     end
-
 ```
 
 ### Shortcomings
+
+Some limitations of *dtapac* that you should be aware of before using it:
 
 * **No retries**. If an analysis decision could not be submitted to Dependency-Track for any reason, it won't be retried.
 * **No persistence**. If you stop *dtapac* while it's still processing something, that something is gone.
@@ -151,13 +172,13 @@ package dtapac.finding
 default analysis = {}
 
 analysis = res {
-    duplicate := {
+    duplicatedVuln := {
         "6795ec44-f810-47aa-a22e-5d817e52cbdc": "GHSA-36p3-wjmg-h94x",
     }[input.vulnerability.vulnId]
     
     res := {
         "state": "FALSE_POSITIVE",
-        "comment": sprintf("Duplicate of %s.", [duplicate]),
+        "comment": sprintf("Duplicate of %s.", [duplicatedVuln]),
         "suppress": true,
     }
 }
