@@ -30,14 +30,14 @@ jobs:
     - name: Type Check
       run: >
         opa eval data.dtapac.${{ matrix.policy }}.analysis
-          --data ./examples/policies/${{ matrix.policy }}.rego
-          --schema ./examples/schemas/${{ matrix.policy }}.schema.json
-          --format pretty
+        --data ./examples/policies/${{ matrix.policy }}.rego
+        --schema ./examples/schemas/${{ matrix.policy }}.schema.json
+        --format pretty
     - name: Test
       run: >
-        opa test -v 
-          ./examples/policies/${{ matrix.policy }}.rego
-          ./examples/policies/${{ matrix.policy }}_test.rego
+        opa test -v
+        ./examples/policies/${{ matrix.policy }}.rego
+        ./examples/policies/${{ matrix.policy }}_test.rego
 
   package:
     name: Package
