@@ -52,14 +52,17 @@ func (a OPAAuditor) AuditFinding(ctx context.Context, finding Finding) (req dtra
 	var analysis FindingAnalysis
 	err = a.opaClient.Decision(ctx, path.Join(a.findingPolicyPath, "/analysis"), finding, &analysis)
 	if err != nil {
+		totalAudited.WithLabelValues(metricsLabelStatusFailed, metricsLabelTypeFinding).Inc()
 		return
 	}
 
 	if analysis == (FindingAnalysis{}) {
+		totalAudited.WithLabelValues(metricsLabelStatusUnmatched, metricsLabelTypeFinding).Inc()
 		a.logger.Debug().Object("finding", finding).Msg("finding is not covered by policy")
 		return
 	}
 
+	totalAudited.WithLabelValues(metricsLabelStatusSuccess, metricsLabelTypeFinding).Inc()
 	a.logger.Debug().Object("analysis", analysis).Msg("received finding analysis")
 
 	req = dtrack.AnalysisRequest{
@@ -73,6 +76,7 @@ func (a OPAAuditor) AuditFinding(ctx context.Context, finding Finding) (req dtra
 		Comment:       analysis.Comment,
 		Suppressed:    analysis.Suppress,
 	}
+
 	return
 }
 
@@ -89,14 +93,17 @@ func (a OPAAuditor) AuditViolation(ctx context.Context, violation Violation) (re
 	var analysis ViolationAnalysis
 	err = a.opaClient.Decision(ctx, path.Join(a.violationPolicyPath, "/analysis"), violation, &analysis)
 	if err != nil {
+		totalAudited.WithLabelValues(metricsLabelStatusFailed, metricsLabelTypeFinding).Inc()
 		return
 	}
 
 	if analysis == (ViolationAnalysis{}) {
+		totalAudited.WithLabelValues(metricsLabelStatusUnmatched, metricsLabelTypeViolation).Inc()
 		a.logger.Debug().Object("violation", violation).Msg("violation is not covered by policy")
 		return
 	}
 
+	totalAudited.WithLabelValues("violation").Inc()
 	a.logger.Debug().Object("analysis", analysis).Msg("received violation analysis")
 
 	req = dtrack.ViolationAnalysisRequest{
@@ -106,5 +113,6 @@ func (a OPAAuditor) AuditViolation(ctx context.Context, violation Violation) (re
 		Comment:         analysis.Comment,
 		Suppressed:      analysis.Suppress,
 	}
+
 	return
 }

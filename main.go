@@ -78,31 +78,14 @@ func exec(ctx context.Context, opts options) error {
 		Out: os.Stderr,
 	})
 
-	// Setup Dependency-Track client and verify that we can establish a working connection.
-	dtrackClient, err := dtrack.NewClient(opts.DTrackURL, dtrack.WithAPIKey(opts.DTrackAPIKey))
+	dtClient, err := dtrack.NewClient(opts.DTrackURL, dtrack.WithAPIKey(opts.DTrackAPIKey))
 	if err != nil {
 		return fmt.Errorf("failed to setup dtrack client: %w", err)
 	}
-	if about, err := dtrackClient.About.Get(ctx); err == nil {
-		if version := about.Version; version != "" {
-			logger.Info().Msgf("connected to dependency-track %s", version)
-		} else {
-			return fmt.Errorf("unable to determine dependency-track version, please verify provided url")
-		}
-	} else {
-		return fmt.Errorf("failed to fetch version from dependency-track: %w", err)
-	}
 
-	// Setup OPA client and verify that we can establish a working connection.
 	opaClient, err := opa.NewClient(opts.OPAURL)
 	if err != nil {
 		return fmt.Errorf("failed to setup opa client: %w", err)
-	}
-	err = opaClient.Health(context.Background())
-	if err == nil {
-		logger.Info().Msg("connected to opa")
-	} else {
-		return fmt.Errorf("opa health check failed: %w", err)
 	}
 
 	auditor, err := audit.NewOPAAuditor(opaClient, opts.FindingPolicyPath, opts.ViolationPolicyPath, serviceLogger("auditor", logger))
@@ -114,7 +97,7 @@ func exec(ctx context.Context, opts options) error {
 
 	// Setup and start API server
 	apiServerAddr := net.JoinHostPort(opts.Host, strconv.FormatUint(uint64(opts.Port), 10))
-	apiServer := api.NewServer(apiServerAddr, dtrackClient, auditor, serviceLogger("apiServer", logger))
+	apiServer := api.NewServer(apiServerAddr, dtClient, auditor, serviceLogger("apiServer", logger))
 	eg.Go(apiServer.Start)
 
 	// Audit results can come from multiple sources (ad-hoc or portfolio-wide analyses).
@@ -151,7 +134,7 @@ func exec(ctx context.Context, opts options) error {
 				logger.Info().Msg("starting portfolio analysis")
 
 				projects, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Project], error) {
-					return dtrackClient.Project.GetAll(egCtx, po)
+					return dtClient.Project.GetAll(egCtx, po)
 				})
 				if err != nil {
 					logger.Error().Err(err).Msg("failed to fetch projects")
@@ -161,7 +144,7 @@ func exec(ctx context.Context, opts options) error {
 				for i, project := range projects {
 					logger.Debug().Str("project", project.UUID.String()).Msg("fetching findings")
 					findings, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Finding], error) {
-						return dtrackClient.Finding.GetAll(egCtx, project.UUID, true, po)
+						return dtClient.Finding.GetAll(egCtx, project.UUID, true, po)
 					})
 					if err != nil {
 						logger.Error().Err(err).
@@ -190,7 +173,7 @@ func exec(ctx context.Context, opts options) error {
 
 					logger.Debug().Str("project", project.UUID.String()).Msg("fetching policy violations")
 					violations, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.PolicyViolation], error) {
-						return dtrackClient.PolicyViolation.GetAllForProject(egCtx, project.UUID, false, po)
+						return dtClient.PolicyViolation.GetAllForProject(egCtx, project.UUID, false, po)
 					})
 					if err != nil {
 						logger.Error().Err(err).
@@ -240,7 +223,7 @@ func exec(ctx context.Context, opts options) error {
 		auditResultChan = merge(auditResultChans...)
 	}
 
-	applier := apply.NewApplier(dtrackClient.Analysis, dtrackClient.ViolationAnalysis, serviceLogger("applier", logger))
+	applier := apply.NewApplier(dtClient.Analysis, dtClient.ViolationAnalysis, serviceLogger("applier", logger))
 	eg.Go(func() error {
 		for auditResult := range auditResultChan {
 			switch res := auditResult.(type) {

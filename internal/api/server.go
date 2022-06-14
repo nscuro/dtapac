@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/nscuro/dtrack-client"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 
 	"github.com/nscuro/dtapac/internal/audit"
@@ -36,6 +37,7 @@ func NewServer(addr string, dtClient *dtrack.Client, auditor audit.Auditor, logg
 		r.Post("/dtrack/notification", handleNotification(dtClient, auditChan, auditor))
 		r.Post("/opa/status", handleOPAStatus(opaStatusChan))
 	})
+	r.Mount("/metrics", promhttp.Handler())
 
 	return &Server{
 		httpServer: &http.Server{

@@ -48,6 +48,7 @@ func (s Applier) ApplyAnalysis(ctx context.Context, analysisReq dtrack.AnalysisR
 	} else if !errors.Is(err, io.EOF) {
 		// Dependency-Track does not respond with a 404 when no analysis was found,
 		// but with a 200 and an empty response body instead.
+		totalApplied.WithLabelValues(metricsLabelStatusFailed, metricsLabelTypeFinding).Inc()
 		return fmt.Errorf("failed to fetch existing analysis: %w", err)
 	}
 
@@ -82,6 +83,7 @@ func (s Applier) ApplyAnalysis(ctx context.Context, analysisReq dtrack.AnalysisR
 		if analysisReq.State == existingAnalysis.State && analysisReq.Justification == existingAnalysis.Justification &&
 			analysisReq.Response == existingAnalysis.Response && analysisReq.Details == existingAnalysis.Details &&
 			analysisReq.Comment == "" && (analysisReq.Suppressed == nil || *analysisReq.Suppressed == existingAnalysis.Suppressed) {
+			totalApplied.WithLabelValues(metricsLabelStatusNop, metricsLabelTypeFinding).Inc()
 			s.logger.Info().
 				Str("component", analysisReq.Component.String()).
 				Str("project", analysisReq.Project.String()).
@@ -98,8 +100,11 @@ func (s Applier) ApplyAnalysis(ctx context.Context, analysisReq dtrack.AnalysisR
 		Msg("submitting analysis")
 	_, err := s.analysisSvc.Create(context.Background(), analysisReq)
 	if err != nil {
+		totalApplied.WithLabelValues(metricsLabelStatusFailed, metricsLabelTypeFinding).Inc()
 		return fmt.Errorf("failed to create analysis: %w", err)
 	}
+
+	totalApplied.WithLabelValues(metricsLabelStatusSuccess, metricsLabelTypeFinding).Inc()
 
 	return nil
 }
@@ -123,6 +128,7 @@ func (s Applier) ApplyViolationAnalysis(ctx context.Context, analysisReq dtrack.
 	} else if !errors.Is(err, io.EOF) {
 		// Dependency-Track does not respond with a 404 when no analysis was found,
 		// but with a 200 and an empty response body instead.
+		totalApplied.WithLabelValues(metricsLabelStatusFailed, metricsLabelTypeViolation).Inc()
 		return fmt.Errorf("failed to fetch existing analysis: %w", err)
 	}
 
@@ -150,6 +156,7 @@ func (s Applier) ApplyViolationAnalysis(ctx context.Context, analysisReq dtrack.
 
 		if analysisReq.State == existingAnalysis.State && analysisReq.Comment == "" &&
 			(analysisReq.Suppressed == nil || *analysisReq.Suppressed == existingAnalysis.Suppressed) {
+			totalApplied.WithLabelValues(metricsLabelStatusNop, metricsLabelTypeViolation).Inc()
 			s.logger.Info().
 				Str("component", analysisReq.Component.String()).
 				Str("violation", analysisReq.PolicyViolation.String()).
@@ -164,8 +171,11 @@ func (s Applier) ApplyViolationAnalysis(ctx context.Context, analysisReq dtrack.
 		Msg("submitting violation analysis")
 	_, err := s.violationAnalysisSvc.Update(context.Background(), analysisReq)
 	if err != nil {
+		totalApplied.WithLabelValues(metricsLabelStatusFailed, metricsLabelTypeViolation).Inc()
 		return fmt.Errorf("failed to update analysis: %w", err)
 	}
+
+	totalApplied.WithLabelValues(metricsLabelStatusSuccess, metricsLabelTypeViolation).Inc()
 
 	return nil
 }
