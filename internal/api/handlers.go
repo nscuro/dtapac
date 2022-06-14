@@ -9,12 +9,13 @@ import (
 
 	"github.com/nscuro/dtrack-client"
 	"github.com/nscuro/dtrack-client/notification"
+	"github.com/rs/zerolog"
 
 	"github.com/nscuro/dtapac/internal/audit"
 	"github.com/nscuro/dtapac/internal/opa"
 )
 
-func handleNotification(auditChan chan<- any, auditor audit.Auditor) http.HandlerFunc {
+func handleNotification(dtClient *dtrack.Client, auditChan chan<- any, auditor audit.Auditor) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		logger := getRequestLogger(r)
 
@@ -35,9 +36,9 @@ func handleNotification(auditChan chan<- any, auditor audit.Auditor) http.Handle
 		case *notification.NewVulnerabilitySubject:
 			for i := range subject.AffectedProjects {
 				finding := audit.Finding{
-					Component:     mapComponent(subject.Component),
-					Project:       mapProject(subject.AffectedProjects[i]),
-					Vulnerability: mapVulnerability(subject.Vulnerability),
+					Component:     resolveComponent(subject.Component, dtClient, logger),
+					Project:       resolveProject(subject.AffectedProjects[i], dtClient, logger),
+					Vulnerability: resolveVulnerability(subject.Vulnerability, dtClient, logger),
 				}
 
 				analysisReq, auditErr := auditor.AuditFinding(context.Background(), finding)
@@ -49,8 +50,8 @@ func handleNotification(auditChan chan<- any, auditor audit.Auditor) http.Handle
 			}
 		case *notification.PolicyViolationSubject:
 			violation := audit.Violation{
-				Component:       mapComponent(subject.Component),
-				Project:         mapProject(subject.Project),
+				Component:       resolveComponent(subject.Component, dtClient, logger),
+				Project:         resolveProject(subject.Project, dtClient, logger),
 				PolicyViolation: mapPolicyViolation(subject.PolicyViolation),
 			}
 
@@ -94,6 +95,42 @@ func handleOPAStatus(statusChan chan<- opa.Status) http.HandlerFunc {
 
 		rw.WriteHeader(http.StatusOK)
 	}
+}
+
+func resolveComponent(input notification.Component, dtClient *dtrack.Client, logger zerolog.Logger) (component dtrack.Component) {
+	component, err := dtClient.Component.Get(context.Background(), input.UUID)
+	if err != nil {
+		logger.Warn().Err(err).
+			Str("component", input.UUID.String()).
+			Msg("failed to fetch component, proceeding with component from notification instead")
+		component = mapComponent(input)
+	}
+
+	return
+}
+
+func resolveProject(input notification.Project, dtClient *dtrack.Client, logger zerolog.Logger) (project dtrack.Project) {
+	project, err := dtClient.Project.Get(context.Background(), input.UUID)
+	if err != nil {
+		logger.Error().Err(err).
+			Str("project", input.UUID.String()).
+			Msg("failed to fetch project, proceeding with project from notification instead")
+		project = mapProject(input)
+	}
+
+	return
+}
+
+func resolveVulnerability(input notification.Vulnerability, dtClient *dtrack.Client, logger zerolog.Logger) (vuln dtrack.Vulnerability) {
+	vuln, err := dtClient.Vulnerability.Get(context.Background(), input.UUID)
+	if err != nil {
+		logger.Error().Err(err).
+			Str("vulnerability", input.UUID.String()).
+			Msg("failed to fetch vulnerability, proceeding with vulnerability from notification instead")
+		vuln = mapVulnerability(input)
+	}
+
+	return
 }
 
 func mapComponent(input notification.Component) dtrack.Component {

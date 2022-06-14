@@ -114,7 +114,7 @@ func exec(ctx context.Context, opts options) error {
 
 	// Setup and start API server
 	apiServerAddr := net.JoinHostPort(opts.Host, strconv.FormatUint(uint64(opts.Port), 10))
-	apiServer := api.NewServer(apiServerAddr, auditor, serviceLogger("apiServer", logger))
+	apiServer := api.NewServer(apiServerAddr, dtrackClient, auditor, serviceLogger("apiServer", logger))
 	eg.Go(apiServer.Start)
 
 	// Audit results can come from multiple sources (ad-hoc or portfolio-wide analyses).
