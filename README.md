@@ -143,7 +143,116 @@ See [`docker-compose.yml`](./docker-compose.yml).
 
 ## Writing Policies
 
+### Inputs
+
+#### Finding
+
+```json
+{
+  "component": {},
+  "project": {},
+  "vulnerability": {}
+}
+```
+
+* [`component`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Component)
+* [`project`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Project)
+* [`vulnerability`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Vulnerability)
+
+##### Example
+
+```json
+{
+  "component": {
+    "uuid": "508f602f-9fd9-40b7-9330-b06e97b1560f",
+    "name": "acme-lib",
+    "version": "1.0.0"
+  },
+  "project": {
+    "uuid": "0197ba77-1ab9-46a4-8130-20aa96158032",
+    "name": "acme-app",
+    "version": "LATEST"
+  },
+  "vulnerability": {
+    "uuid": "03e377f5-d78e-4851-89a2-e659e9ac8439",
+    "vulnId": "CVE-XXXX-XXXX",
+    "source": "NVD"
+  }
+}
+```
+
+#### Violation
+
+```json
+{
+  "component": {},
+  "project": {},
+  "policyViolation": {}
+}
+```
+
+* [`component`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Component)
+* [`project`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Project)
+* [`policyViolation`](https://pkg.go.dev/github.com/nscuro/dtrack-client#PolicyViolation)
+
+##### Example
+
+```json
+{
+  "component": {
+    "uuid": "508f602f-9fd9-40b7-9330-b06e97b1560f",
+    "name": "acme-lib",
+    "version": "1.0.0"
+  },
+  "policyViolation": {
+    "uuid": "9e3330f7-40f6-4121-a5f2-13fc67c4e36d",
+    "type": "OPERATIONAL",
+    "policyCondition": {
+      "uuid": "6159e278-26f1-490c-921b-e6d3adf0ee4b",
+      "operator": "MATCHES",
+      "subject": "COORDINATES",
+      "value": "{\"group\":\"*\",\"name\":\"acme-lib\",\"version\":\"*\"}",
+      "policy": {
+        "uuid": "8fc2b2fd-2535-4e45-8d73-ffc1cce0ff13",
+        "name": "ACME Policy",
+        "violationState": "FAIL"
+      }
+    }
+  },
+  "project": {
+    "uuid": "0197ba77-1ab9-46a4-8130-20aa96158032",
+    "name": "acme-app",
+    "version": "LATEST"
+  }
+}
+```
+
+### Results
+
+#### Finding
+
 TBD
+
+```json
+```
+
+##### Example
+
+TBD
+
+#### Violation
+
+TBD
+
+```json
+```
+
+##### Example
+
+TBD
+
+```json
+```
 
 ## Policy Management
 
