@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "properties": {
+    "component": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "group": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "md5": {
+          "type": "string"
+        },
+        "sha1": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "sha512": {
+          "type": "string"
+        },
+        "purl": {
+          "type": "string"
+        }
+      }
+    },
+    "policyViolation": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "type": {
+          "type": "string"
+        },
+        "policyCondition": {
+          "type": "object",
+          "properties": {
+            "uuid": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "operator": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            },
+            "policy": {
+              "type": "object",
+              "properties": {
+                "uuid": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "violationState": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "group": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

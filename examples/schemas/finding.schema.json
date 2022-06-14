@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "properties": {
+    "component": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "group": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "md5": {
+          "type": "string"
+        },
+        "sha1": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "sha512": {
+          "type": "string"
+        },
+        "purl": {
+          "type": "string"
+        }
+      }
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "group": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "vulnerability": {
+      "type": "object",
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "vulnId": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "recommendation": {
+          "type": "string"
+        },
+        "cvssv2": {
+          "type": "string"
+        },
+        "cvssv3": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "cwe": {
+          "$ref": "#/definitions/cwe"
+        },
+        "cwes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/cwe"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "cwe": {
+      "type": "object",
+      "properties": {
+        "cweId": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

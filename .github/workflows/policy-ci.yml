@@ -1,0 +1,59 @@
+name: Policy CI
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        policy:
+        - finding
+        - violation
+    steps:
+    - name: Setup OPA
+      uses: open-policy-agent/setup-opa@faa87c85bf45c58af696e3ef83f8e77f7c40396b # tag=v1.0.0
+      with:
+        version: latest
+    - name: Checkout Repository
+      uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # tag=v3
+    - name: Type Check
+      run: >
+        opa eval data.dtapac.${{ matrix.policy }}.analysis
+          --data ./examples/policies/${{ matrix.policy }}.rego
+          --schema ./examples/schemas/${{ matrix.policy }}.schema.json
+          --format pretty
+    - name: Test
+      run: >
+        opa test -v 
+          ./examples/policies/${{ matrix.policy }}.rego
+          ./examples/policies/${{ matrix.policy }}_test.rego
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    needs:
+    - test
+    steps:
+    - name: Setup OPA
+      uses: open-policy-agent/setup-opa@faa87c85bf45c58af696e3ef83f8e77f7c40396b # tag=v1.0.0
+      with:
+        version: latest
+    - name: Checkout Repository
+      uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # tag=v3
+    - name: Build Bundle
+      run: opa build -o ./bundle.tar.gz -r ${{ github.sha }} ./examples/policies
+    - uses: actions/upload-artifact@v3
+      with:
+        name: policy-bundle
+        path: ./bundle.tar.gz
