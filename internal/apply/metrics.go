@@ -21,6 +21,7 @@ const (
 	metricsLabelTypeViolation = "violation"
 )
 
+//nolint:gochecknoinits
 func init() {
 	prometheus.MustRegister(totalApplied)
 }
