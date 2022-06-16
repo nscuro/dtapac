@@ -130,6 +130,8 @@ FLAGS
   -dtrack-url ...             Dependency-Track API server URL
   -finding-policy-path ...    Policy path for finding analysis
   -host 0.0.0.0               Host to listen on
+  -log-json=false             Output log in JSON format
+  -log-level info             Log level
   -opa-url ...                Open Policy Agent URL
   -port 8080                  Port to listen on
   -violation-policy-path ...  Policy path for violation analysis

@@ -39,6 +39,8 @@ func main() {
 	fs.StringVar(&opts.FindingPolicyPath, "finding-policy-path", "", "Policy path for finding analysis")
 	fs.StringVar(&opts.ViolationPolicyPath, "violation-policy-path", "", "Policy path for violation analysis")
 	fs.BoolVar(&opts.DryRun, "dry-run", false, "Only log analyses but don't apply them")
+	fs.StringVar(&opts.LogLevel, "log-level", zerolog.LevelInfoValue, "Log level")
+	fs.BoolVar(&opts.LogJSON, "log-json", false, "Output log in JSON format")
 
 	cmd := ffcli.Command{
 		Name:       "dtapac",
@@ -73,12 +75,22 @@ type options struct {
 	FindingPolicyPath   string
 	ViolationPolicyPath string
 	DryRun              bool
+	LogLevel            string
+	LogJSON             bool
 }
 
 func exec(ctx context.Context, opts options) error {
-	logger := log.Output(zerolog.ConsoleWriter{
-		Out: os.Stderr,
-	})
+	logger := log.Logger
+	if !opts.LogJSON {
+		logger = log.Output(zerolog.ConsoleWriter{
+			Out: os.Stderr,
+		})
+	}
+	if lvl, err := zerolog.ParseLevel(opts.LogLevel); err == nil {
+		logger = logger.Level(lvl)
+	} else {
+		logger.Error().Err(err).Msg("failed to parse log level")
+	}
 
 	dtClient, err := dtrack.NewClient(opts.DTrackURL, dtrack.WithAPIKey(opts.DTrackAPIKey))
 	if err != nil {
