@@ -18,6 +18,7 @@ type Applier struct {
 	violationAnalysisSvc violationAnalysisService
 	locker               *locker.Locker
 	logger               zerolog.Logger
+	dryRun               bool
 }
 
 func NewApplier(analysisSvc analysisService, violationAnalysisSvc violationAnalysisService, logger zerolog.Logger) *Applier {
@@ -30,20 +31,20 @@ func NewApplier(analysisSvc analysisService, violationAnalysisSvc violationAnaly
 }
 
 // ApplyAnalysis applies an analysis.
-func (s Applier) ApplyAnalysis(ctx context.Context, analysisReq dtrack.AnalysisRequest) error {
+func (a *Applier) ApplyAnalysis(ctx context.Context, analysisReq dtrack.AnalysisRequest) error {
 	lockName := fmt.Sprintf("finding:%s:%s:%s", analysisReq.Component, analysisReq.Project, analysisReq.Vulnerability)
-	s.locker.Lock(lockName)
+	a.locker.Lock(lockName)
 	defer func() {
-		err := s.locker.Unlock(lockName)
+		err := a.locker.Unlock(lockName)
 		if err != nil {
-			s.logger.Error().Err(err).
+			a.logger.Error().Err(err).
 				Str("lock", lockName).
 				Msg("failed to unlock")
 		}
 	}()
 
 	var existingAnalysis *dtrack.Analysis
-	if analysis, err := s.analysisSvc.Get(ctx, analysisReq.Component, analysisReq.Project, analysisReq.Vulnerability); err == nil {
+	if analysis, err := a.analysisSvc.Get(ctx, analysisReq.Component, analysisReq.Project, analysisReq.Vulnerability); err == nil {
 		existingAnalysis = &analysis
 	} else if !errors.Is(err, io.EOF) {
 		// Dependency-Track does not respond with a 404 when no analysis was found,
@@ -84,7 +85,7 @@ func (s Applier) ApplyAnalysis(ctx context.Context, analysisReq dtrack.AnalysisR
 			analysisReq.Response == existingAnalysis.Response && analysisReq.Details == existingAnalysis.Details &&
 			analysisReq.Comment == "" && (analysisReq.Suppressed == nil || *analysisReq.Suppressed == existingAnalysis.Suppressed) {
 			totalApplied.WithLabelValues(metricsLabelStatusNop, metricsLabelTypeFinding).Inc()
-			s.logger.Info().
+			a.logger.Info().
 				Str("component", analysisReq.Component.String()).
 				Str("project", analysisReq.Project.String()).
 				Str("vulnerability", analysisReq.Vulnerability.String()).
@@ -93,12 +94,19 @@ func (s Applier) ApplyAnalysis(ctx context.Context, analysisReq dtrack.AnalysisR
 		}
 	}
 
-	s.logger.Info().
+	if a.dryRun {
+		a.logger.Info().
+			Interface("analysis", analysisReq).
+			Msg("DRY RUN - would apply analysis")
+		return nil
+	}
+
+	a.logger.Info().
 		Str("component", analysisReq.Component.String()).
 		Str("project", analysisReq.Project.String()).
 		Str("vulnerability", analysisReq.Vulnerability.String()).
-		Msg("submitting analysis")
-	_, err := s.analysisSvc.Create(context.Background(), analysisReq)
+		Msg("applying analysis")
+	_, err := a.analysisSvc.Create(context.Background(), analysisReq)
 	if err != nil {
 		totalApplied.WithLabelValues(metricsLabelStatusFailed, metricsLabelTypeFinding).Inc()
 		return fmt.Errorf("failed to create analysis: %w", err)
@@ -110,20 +118,20 @@ func (s Applier) ApplyAnalysis(ctx context.Context, analysisReq dtrack.AnalysisR
 }
 
 // ApplyViolationAnalysis applies a violation analysis.
-func (s Applier) ApplyViolationAnalysis(ctx context.Context, analysisReq dtrack.ViolationAnalysisRequest) error {
+func (a *Applier) ApplyViolationAnalysis(ctx context.Context, analysisReq dtrack.ViolationAnalysisRequest) error {
 	lockName := fmt.Sprintf("violation:%s:%s", analysisReq.Component, analysisReq.PolicyViolation)
-	s.locker.Lock(lockName)
+	a.locker.Lock(lockName)
 	defer func() {
-		err := s.locker.Unlock(lockName)
+		err := a.locker.Unlock(lockName)
 		if err != nil {
-			s.logger.Error().Err(err).
+			a.logger.Error().Err(err).
 				Str("lock", lockName).
 				Msg("failed to unlock")
 		}
 	}()
 
 	var existingAnalysis *dtrack.ViolationAnalysis
-	if analysis, err := s.violationAnalysisSvc.Get(ctx, analysisReq.Component, analysisReq.PolicyViolation); err == nil {
+	if analysis, err := a.violationAnalysisSvc.Get(ctx, analysisReq.Component, analysisReq.PolicyViolation); err == nil {
 		existingAnalysis = &analysis
 	} else if !errors.Is(err, io.EOF) {
 		// Dependency-Track does not respond with a 404 when no analysis was found,
@@ -157,7 +165,7 @@ func (s Applier) ApplyViolationAnalysis(ctx context.Context, analysisReq dtrack.
 		if analysisReq.State == existingAnalysis.State && analysisReq.Comment == "" &&
 			(analysisReq.Suppressed == nil || *analysisReq.Suppressed == existingAnalysis.Suppressed) {
 			totalApplied.WithLabelValues(metricsLabelStatusNop, metricsLabelTypeViolation).Inc()
-			s.logger.Info().
+			a.logger.Info().
 				Str("component", analysisReq.Component.String()).
 				Str("violation", analysisReq.PolicyViolation.String()).
 				Msg("violation analysis is already in desired state")
@@ -165,11 +173,18 @@ func (s Applier) ApplyViolationAnalysis(ctx context.Context, analysisReq dtrack.
 		}
 	}
 
-	s.logger.Info().
+	if a.dryRun {
+		a.logger.Info().
+			Interface("violationAnalysis", analysisReq).
+			Msg("DRY RUN - would apply violation analysis")
+		return nil
+	}
+
+	a.logger.Info().
 		Str("component", analysisReq.Component.String()).
 		Str("violation", analysisReq.PolicyViolation.String()).
-		Msg("submitting violation analysis")
-	_, err := s.violationAnalysisSvc.Update(context.Background(), analysisReq)
+		Msg("applying violation analysis")
+	_, err := a.violationAnalysisSvc.Update(context.Background(), analysisReq)
 	if err != nil {
 		totalApplied.WithLabelValues(metricsLabelStatusFailed, metricsLabelTypeViolation).Inc()
 		return fmt.Errorf("failed to update analysis: %w", err)
@@ -178,6 +193,12 @@ func (s Applier) ApplyViolationAnalysis(ctx context.Context, analysisReq dtrack.
 	totalApplied.WithLabelValues(metricsLabelStatusSuccess, metricsLabelTypeViolation).Inc()
 
 	return nil
+}
+
+// SetDryRun toggles the dry run mode.
+// When in dry run mode, analyses will only be logged, but not applied.
+func (a *Applier) SetDryRun(dryRun bool) {
+	a.dryRun = dryRun
 }
 
 // analysisService is an interface for parts of the Dependency-Track

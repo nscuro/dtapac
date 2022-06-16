@@ -7,7 +7,7 @@
 *Audit Dependency-Track findings and policy violations via policy as code*
 
 > Consider this project to be a proof-of-concept. It is not very sophisticated, but it gets the job done.
-> Try it in a test environment first. *Do not skip this step* and run it in production without prior testing!
+> Try it in a test environment first. **Do not skip this step, do not run it in production without prior testing**!
 
 ## Introduction
 
@@ -125,6 +125,7 @@ Audit Dependency-Track findings and policy violations via policy as code.
 
 FLAGS
   -config ...                 Path to config file
+  -dry-run=false              Only log analyses but don't apply them
   -dtrack-apikey ...          Dependency-Track API key
   -dtrack-url ...             Dependency-Track API server URL
   -finding-policy-path ...    Policy path for finding analysis

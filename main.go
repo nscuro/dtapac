@@ -38,6 +38,7 @@ func main() {
 	fs.StringVar(&opts.WatchBundle, "watch-bundle", "", "OPA bundle to watch")
 	fs.StringVar(&opts.FindingPolicyPath, "finding-policy-path", "", "Policy path for finding analysis")
 	fs.StringVar(&opts.ViolationPolicyPath, "violation-policy-path", "", "Policy path for violation analysis")
+	fs.BoolVar(&opts.DryRun, "dry-run", false, "Only log analyses but don't apply them")
 
 	cmd := ffcli.Command{
 		Name:       "dtapac",
@@ -71,6 +72,7 @@ type options struct {
 	WatchBundle         string
 	FindingPolicyPath   string
 	ViolationPolicyPath string
+	DryRun              bool
 }
 
 func exec(ctx context.Context, opts options) error {
@@ -224,6 +226,7 @@ func exec(ctx context.Context, opts options) error {
 	}
 
 	applier := apply.NewApplier(dtClient.Analysis, dtClient.ViolationAnalysis, serviceLogger("applier", logger))
+	applier.SetDryRun(opts.DryRun)
 	eg.Go(func() error {
 		for auditResult := range auditResultChan {
 			switch res := auditResult.(type) {
