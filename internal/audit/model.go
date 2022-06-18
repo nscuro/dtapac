@@ -34,6 +34,7 @@ func (fa FindingAnalysis) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("state", string(fa.State)).
 		Str("justification", string(fa.Justification)).
 		Str("response", string(fa.Response)).
+		Str("details", fa.Details).
 		Str("comment", fa.Comment).
 		Interface("suppress", fa.Suppress)
 }
