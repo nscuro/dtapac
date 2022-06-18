@@ -109,13 +109,12 @@ func exec(ctx context.Context, opts options) error {
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
-	// Setup and start API server
 	apiServerAddr := net.JoinHostPort(opts.Host, strconv.FormatUint(uint64(opts.Port), 10))
 	apiServer := api.NewServer(apiServerAddr, dtClient, auditor, serviceLogger("apiServer", logger))
 	eg.Go(apiServer.Start)
 
-	// Audit results can come from multiple sources (ad-hoc or portfolio-wide analyses).
-	// We keep track of them in a slice and merge them later if necessary.
+	// Audit results can come from multiple sources (notifications or portfolio-wide analyses).
+	// We keep track of source channels in a slice and merge them later if necessary.
 	auditResultChans := []<-chan any{apiServer.AuditResultChan()}
 
 	if opts.WatchBundle != "" {

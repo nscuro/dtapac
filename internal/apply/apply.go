@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/google/uuid"
-	"github.com/moby/locker"
 	"github.com/nscuro/dtrack-client"
 	"github.com/rs/zerolog"
 )
@@ -16,7 +15,6 @@ import (
 type Applier struct {
 	analysisSvc          analysisService
 	violationAnalysisSvc violationAnalysisService
-	locker               *locker.Locker
 	logger               zerolog.Logger
 	dryRun               bool
 }
@@ -25,24 +23,12 @@ func NewApplier(analysisSvc analysisService, violationAnalysisSvc violationAnaly
 	return &Applier{
 		analysisSvc:          analysisSvc,
 		violationAnalysisSvc: violationAnalysisSvc,
-		locker:               locker.New(),
 		logger:               logger,
 	}
 }
 
 // ApplyAnalysis applies an analysis.
 func (a *Applier) ApplyAnalysis(ctx context.Context, analysisReq dtrack.AnalysisRequest) error {
-	lockName := fmt.Sprintf("finding:%s:%s:%s", analysisReq.Component, analysisReq.Project, analysisReq.Vulnerability)
-	a.locker.Lock(lockName)
-	defer func() {
-		err := a.locker.Unlock(lockName)
-		if err != nil {
-			a.logger.Error().Err(err).
-				Str("lock", lockName).
-				Msg("failed to unlock")
-		}
-	}()
-
 	var existingAnalysis *dtrack.Analysis
 	if analysis, err := a.analysisSvc.Get(ctx, analysisReq.Component, analysisReq.Project, analysisReq.Vulnerability); err == nil {
 		existingAnalysis = &analysis
@@ -119,17 +105,6 @@ func (a *Applier) ApplyAnalysis(ctx context.Context, analysisReq dtrack.Analysis
 
 // ApplyViolationAnalysis applies a violation analysis.
 func (a *Applier) ApplyViolationAnalysis(ctx context.Context, analysisReq dtrack.ViolationAnalysisRequest) error {
-	lockName := fmt.Sprintf("violation:%s:%s", analysisReq.Component, analysisReq.PolicyViolation)
-	a.locker.Lock(lockName)
-	defer func() {
-		err := a.locker.Unlock(lockName)
-		if err != nil {
-			a.logger.Error().Err(err).
-				Str("lock", lockName).
-				Msg("failed to unlock")
-		}
-	}()
-
 	var existingAnalysis *dtrack.ViolationAnalysis
 	if analysis, err := a.violationAnalysisSvc.Get(ctx, analysisReq.Component, analysisReq.PolicyViolation); err == nil {
 		existingAnalysis = &analysis
@@ -204,7 +179,7 @@ func (a *Applier) SetDryRun(dryRun bool) {
 // analysisService is an interface for parts of the Dependency-Track
 // analysis API to make mocking in tests easier.
 //
-// This interface is implemented by github.com/nscuro/dtrack-client.
+// This interface is implemented by https://pkg.go.dev/github.com/nscuro/dtrack-client#AnalysisService
 type analysisService interface {
 	Get(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (dtrack.Analysis, error)
 	Create(context.Context, dtrack.AnalysisRequest) (dtrack.Analysis, error)
@@ -213,7 +188,7 @@ type analysisService interface {
 // violationAnalysisService is an interface for parts of the Dependency-Track
 // violation analysis API to make mocking in tests easier.
 //
-// This interface is implemented by github.com/nscuro/dtrack-client.
+// This interface is implemented by https://pkg.go.dev/github.com/nscuro/dtrack-client#ViolationAnalysisService
 type violationAnalysisService interface {
 	Get(context.Context, uuid.UUID, uuid.UUID) (dtrack.ViolationAnalysis, error)
 	Update(context.Context, dtrack.ViolationAnalysisRequest) (dtrack.ViolationAnalysis, error)

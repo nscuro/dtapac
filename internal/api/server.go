@@ -28,23 +28,23 @@ func NewServer(addr string, dtClient *dtrack.Client, auditor audit.Auditor, logg
 	auditChan := make(chan any, 1)
 	opaStatusChan := make(chan opa.Status, 1)
 
-	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.Recoverer)
-	r.Use(loggerMiddleware(logger))
-	r.Route("/api/v1", func(r chi.Router) {
+	router := chi.NewRouter()
+	router.Use(middleware.RequestID)
+	router.Use(middleware.Recoverer)
+	router.Use(loggerMiddleware(logger))
+	router.Route("/api/v1", func(r chi.Router) {
 		r.Use(middleware.AllowContentType("application/json"))
-		r.Post("/dtrack/notification", handleNotification(dtClient, auditChan, auditor))
+		r.Post("/dtrack/notification", handleDTNotification(dtClient, auditChan, auditor))
 		r.Post("/opa/status", handleOPAStatus(opaStatusChan))
 	})
-	r.Mount("/metrics", promhttp.Handler())
+	router.Mount("/metrics", promhttp.Handler())
 
 	return &Server{
 		httpServer: &http.Server{
 			Addr:    addr,
-			Handler: r,
+			Handler: router,
 		},
-		router:          r,
+		router:          router,
 		auditResultChan: auditChan,
 		opaStatusChan:   opaStatusChan,
 		logger:          logger,

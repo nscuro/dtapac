@@ -15,19 +15,13 @@ import (
 	"github.com/nscuro/dtapac/internal/opa"
 )
 
-func handleNotification(dtClient *dtrack.Client, auditChan chan<- any, auditor audit.Auditor) http.HandlerFunc {
+func handleDTNotification(dtClient *dtrack.Client, auditChan chan<- any, auditor audit.Auditor) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		logger := getRequestLogger(r)
 
 		n, err := notification.Parse(r.Body)
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to parse notification")
-			rw.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		if n.Group != notification.GroupNewVulnerability && n.Group != notification.GroupPolicyViolation {
-			logger.Warn().Str("group", n.Group).Msg("unsupported notification group")
 			rw.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -55,17 +49,16 @@ func handleNotification(dtClient *dtrack.Client, auditChan chan<- any, auditor a
 				PolicyViolation: mapPolicyViolation(subject.PolicyViolation),
 			}
 
-			analysisReq, auditErr := auditor.AuditViolation(context.Background(), violation)
-			if auditErr == nil && analysisReq != (dtrack.ViolationAnalysisRequest{}) {
-				auditChan <- analysisReq
+			violationAnalysisReq, auditErr := auditor.AuditViolation(context.Background(), violation)
+			if auditErr == nil && violationAnalysisReq != (dtrack.ViolationAnalysisRequest{}) {
+				auditChan <- violationAnalysisReq
 			} else if auditErr != nil {
 				logger.Error().Err(auditErr).Object("violation", violation).Msg("failed to audit violation")
 			}
 		default:
-			// The only way this can ever happen is when dtrack-client
-			// has a bug in its notification parsing logic.
 			logger.Error().
-				Str("type", fmt.Sprintf("%T", n.Subject)).
+				Str("group", n.Group).
+				Str("subjectType", fmt.Sprintf("%T", n.Subject)).
 				Msg("notification subject is of unexpected type")
 			rw.WriteHeader(http.StatusBadRequest)
 			return
