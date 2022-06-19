@@ -19,6 +19,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/nscuro/dtapac/internal/analysis"
 	"github.com/nscuro/dtapac/internal/api"
 	"github.com/nscuro/dtapac/internal/apply"
 	"github.com/nscuro/dtapac/internal/audit"
@@ -30,17 +31,17 @@ func main() {
 	fs.String("config", "", "Path to config file")
 
 	var opts options
-	fs.StringVar(&opts.Host, "host", "0.0.0.0", "Host to listen on")
-	fs.UintVar(&opts.Port, "port", 8080, "Port to listen on")
-	fs.StringVar(&opts.DTrackURL, "dtrack-url", "", "Dependency-Track API server URL")
-	fs.StringVar(&opts.DTrackAPIKey, "dtrack-apikey", "", "Dependency-Track API key")
-	fs.StringVar(&opts.OPAURL, "opa-url", "", "Open Policy Agent URL")
-	fs.StringVar(&opts.WatchBundle, "watch-bundle", "", "OPA bundle to watch")
-	fs.StringVar(&opts.FindingPolicyPath, "finding-policy-path", "", "Policy path for finding analysis")
-	fs.StringVar(&opts.ViolationPolicyPath, "violation-policy-path", "", "Policy path for violation analysis")
-	fs.BoolVar(&opts.DryRun, "dry-run", false, "Only log analyses but don't apply them")
-	fs.StringVar(&opts.LogLevel, "log-level", zerolog.LevelInfoValue, "Log level")
-	fs.BoolVar(&opts.LogJSON, "log-json", false, "Output log in JSON format")
+	fs.StringVar(&opts.host, "host", "0.0.0.0", "Host to listen on")
+	fs.UintVar(&opts.port, "port", 8080, "Port to listen on")
+	fs.StringVar(&opts.dtURL, "dtrack-url", "", "Dependency-Track API server URL")
+	fs.StringVar(&opts.dtAPIKey, "dtrack-apikey", "", "Dependency-Track API key")
+	fs.StringVar(&opts.opaURL, "opa-url", "", "Open Policy Agent URL")
+	fs.StringVar(&opts.watchBundle, "watch-bundle", "", "OPA bundle to watch")
+	fs.StringVar(&opts.findingPolicyPath, "finding-policy-path", "", "Policy path for finding analysis")
+	fs.StringVar(&opts.violationPolicyPath, "violation-policy-path", "", "Policy path for violation analysis")
+	fs.BoolVar(&opts.dryRun, "dry-run", false, "Only log analyses but don't apply them")
+	fs.StringVar(&opts.logLevel, "log-level", zerolog.LevelInfoValue, "Log level")
+	fs.BoolVar(&opts.logJSON, "log-json", false, "Output log in JSON format")
 
 	cmd := ffcli.Command{
 		Name:       "dtapac",
@@ -66,199 +67,99 @@ func main() {
 }
 
 type options struct {
-	Host                string
-	Port                uint
-	DTrackURL           string
-	DTrackAPIKey        string
-	OPAURL              string
-	WatchBundle         string
-	FindingPolicyPath   string
-	ViolationPolicyPath string
-	DryRun              bool
-	LogLevel            string
-	LogJSON             bool
+	host                string
+	port                uint
+	dtURL               string
+	dtAPIKey            string
+	opaURL              string
+	watchBundle         string
+	findingPolicyPath   string
+	violationPolicyPath string
+	dryRun              bool
+	logLevel            string
+	logJSON             bool
 }
 
 func exec(ctx context.Context, opts options) error {
 	logger := log.Logger
-	if !opts.LogJSON {
+	if !opts.logJSON {
 		logger = log.Output(zerolog.ConsoleWriter{
 			Out: os.Stderr,
 		})
 	}
-	if lvl, err := zerolog.ParseLevel(opts.LogLevel); err == nil {
+	if lvl, err := zerolog.ParseLevel(opts.logLevel); err == nil {
 		logger = logger.Level(lvl)
 	} else {
 		logger.Error().Err(err).Msg("failed to parse log level")
 	}
 
-	dtClient, err := dtrack.NewClient(opts.DTrackURL, dtrack.WithAPIKey(opts.DTrackAPIKey))
+	dtClient, err := dtrack.NewClient(opts.dtURL, dtrack.WithAPIKey(opts.dtAPIKey))
 	if err != nil {
 		return fmt.Errorf("failed to setup dtrack client: %w", err)
 	}
 
-	opaClient, err := opa.NewClient(opts.OPAURL)
+	opaClient, err := opa.NewClient(opts.opaURL)
 	if err != nil {
 		return fmt.Errorf("failed to setup opa client: %w", err)
 	}
 
-	auditor, err := audit.NewOPAAuditor(opaClient, opts.FindingPolicyPath, opts.ViolationPolicyPath, serviceLogger("auditor", logger))
+	auditor, err := audit.NewOPAAuditor(opaClient, opts.findingPolicyPath, opts.violationPolicyPath, serviceLogger("auditor", logger))
 	if err != nil {
 		return fmt.Errorf("failed to setup auditor: %w", err)
 	}
 
-	eg, egCtx := errgroup.WithContext(ctx)
-
-	apiServerAddr := net.JoinHostPort(opts.Host, strconv.FormatUint(uint64(opts.Port), 10))
-	apiServer := api.NewServer(apiServerAddr, dtClient, auditor, serviceLogger("apiServer", logger))
-	eg.Go(apiServer.Start)
-
-	// Audit results can come from multiple sources (notifications or portfolio-wide analyses).
-	// We keep track of source channels in a slice and merge them later if necessary.
-	auditResultChans := []<-chan any{apiServer.AuditResultChan()}
-
-	if opts.WatchBundle != "" {
-		bundleWatcher := opa.NewBundleWatcher(opts.WatchBundle, apiServer.OPAStatusChan(), serviceLogger("bundleWatcher", logger))
-
-		// Listen for bundle updates and trigger a portfolio-wide analysis
-		// if an update was received.
-		triggerChan := make(chan struct{}, 1)
-		eg.Go(func() (err error) {
-			defer close(triggerChan)
-
-			for range bundleWatcher.Subscribe() {
-				select {
-				case triggerChan <- struct{}{}:
-				default:
-				}
-			}
-
-			return
-		})
-
-		// Listen for triggers from the above goroutine and perform a portfolio-wide
-		// analysis when triggered.
-		auditChan := make(chan any, 1)
-		auditResultChans = append(auditResultChans, auditChan)
-		eg.Go(func() error {
-			defer close(auditChan)
-
-			for range triggerChan {
-				logger.Info().Msg("starting portfolio analysis")
-
-				projects, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Project], error) {
-					return dtClient.Project.GetAll(egCtx, po)
-				})
-				if err != nil {
-					logger.Error().Err(err).Msg("failed to fetch projects")
-					continue
-				}
-
-				for i, project := range projects {
-					logger.Debug().Str("project", project.UUID.String()).Msg("fetching findings")
-					findings, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Finding], error) {
-						return dtClient.Finding.GetAll(egCtx, project.UUID, true, po)
-					})
-					if err != nil {
-						logger.Error().Err(err).
-							Str("project", project.UUID.String()).
-							Msg("failed to fetch findings")
-						continue
-					}
-
-					for j := range findings {
-						finding := audit.Finding{
-							Component:     findings[j].Component,
-							Project:       projects[i],
-							Vulnerability: findings[j].Vulnerability,
-						}
-
-						analysisReq, auditErr := auditor.AuditFinding(context.Background(), finding)
-						if auditErr == nil && analysisReq != (dtrack.AnalysisRequest{}) {
-							auditChan <- analysisReq
-						} else if auditErr != nil {
-							logger.Error().Err(auditErr).
-								Object("finding", finding).
-								Msg("failed to audit finding")
-							continue
-						}
-					}
-
-					logger.Debug().Str("project", project.UUID.String()).Msg("fetching policy violations")
-					violations, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.PolicyViolation], error) {
-						return dtClient.PolicyViolation.GetAllForProject(egCtx, project.UUID, false, po)
-					})
-					if err != nil {
-						logger.Error().Err(err).
-							Str("project", project.UUID.String()).
-							Msg("failed to fetch policy violations")
-						continue
-					}
-
-					for j := range violations {
-						violation := audit.Violation{
-							Component:       violations[j].Component,
-							Project:         violations[i].Project,
-							PolicyViolation: violations[i],
-						}
-
-						analysisReq, auditErr := auditor.AuditViolation(context.Background(), violation)
-						if auditErr == nil && analysisReq != (dtrack.ViolationAnalysisRequest{}) {
-							auditChan <- analysisReq
-						} else if auditErr != nil {
-							logger.Error().Err(auditErr).
-								Object("violation", violation).
-								Msg("failed to audit violation")
-							continue
-						}
-					}
-				}
-
-				logger.Info().Msg("portfolio analysis completed")
-			}
-
-			return nil
-		})
-
-		eg.Go(func() error {
-			return bundleWatcher.Start(egCtx)
-		})
+	apiServerAddr := net.JoinHostPort(opts.host, strconv.FormatUint(uint64(opts.port), 10))
+	apiServer, err := api.NewServer(apiServerAddr, dtClient, auditor, serviceLogger("apiServer", logger))
+	if err != nil {
+		return fmt.Errorf("failed to setup api server: %w", err)
 	}
 
-	// If we have more than one channel for audit results, merge them into one.
-	// It'd be preferable if we only ever had to deal with one, but that is a little
-	// tricky right now when it comes to cancellation and closing channels in the
-	// correct order. Worth revisiting later.
-	var auditResultChan <-chan any
-	if len(auditResultChans) == 1 {
-		auditResultChan = auditResultChans[0]
-	} else {
-		auditResultChan = merge(auditResultChans...)
+	bundleWatcher, err := opa.NewBundleWatcher(opts.watchBundle, apiServer.OPAStatusChan(), serviceLogger("bundleWatcher", logger))
+	if err != nil {
+		return fmt.Errorf("failed to setup bundle watcher: %w", err)
+	}
+
+	portfolioAnalyzer, err := analysis.NewPortfolioAnalyzer(dtClient, auditor, serviceLogger("portfolioAnalyzer", logger))
+	if err != nil {
+		return fmt.Errorf("failed to setup portfolio analyzer: %w", err)
 	}
 
 	applier := apply.NewApplier(dtClient.Analysis, dtClient.ViolationAnalysis, serviceLogger("applier", logger))
-	applier.SetDryRun(opts.DryRun)
+	applier.SetDryRun(opts.dryRun)
+
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(apiServer.Start)
 	eg.Go(func() error {
-		for auditResult := range auditResultChan {
-			switch res := auditResult.(type) {
-			case dtrack.AnalysisRequest:
-				submitErr := applier.ApplyAnalysis(egCtx, res)
-				if submitErr != nil {
-					logger.Error().Err(submitErr).
-						Interface("request", res).
-						Msg("failed to apply analysis request")
+		return bundleWatcher.Start(egCtx)
+	})
+
+	// Trigger a portfolio analysis every time the watched bundle has been updated.
+	portfolioAnalysisTriggerChan := make(chan struct{}, 1)
+	eg.Go(func() error {
+		defer close(portfolioAnalysisTriggerChan)
+
+		for {
+			select {
+			case _, open := <-bundleWatcher.UpdateChan():
+				if !open {
+					return nil
 				}
-			case dtrack.ViolationAnalysisRequest:
-				submitErr := applier.ApplyViolationAnalysis(egCtx, res)
-				if submitErr != nil {
-					logger.Error().Err(submitErr).
-						Interface("request", res).
-						Msg("failed to apply violation analysis request")
-				}
+
+				portfolioAnalysisTriggerChan <- struct{}{}
+			case <-egCtx.Done():
+				return egCtx.Err()
 			}
 		}
+	})
 
-		return nil
+	eg.Go(func() error {
+		return portfolioAnalyzer.Start(egCtx, portfolioAnalysisTriggerChan)
+	})
+
+	// Merge all channels that emit audit results into one, so the applier can consume them.
+	auditResultChan := merge(apiServer.AuditResultChan(), portfolioAnalyzer.AuditResultChan())
+	eg.Go(func() error {
+		return applier.Start(egCtx, auditResultChan)
 	})
 
 	termChan := make(chan os.Signal, 1)
@@ -270,6 +171,8 @@ func exec(ctx context.Context, opts options) error {
 		logger.Debug().AnErr("reason", egCtx.Err()).Msg("shutting down")
 	}
 
+	// Stopping the API server will close all its channels, draining all channels
+	// further down the processing pipeline and ultimately closing them too.
 	err = apiServer.Stop()
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to shutdown api server")

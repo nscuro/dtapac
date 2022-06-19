@@ -27,8 +27,41 @@ func NewApplier(analysisSvc analysisService, violationAnalysisSvc violationAnaly
 	}
 }
 
-// ApplyAnalysis applies an analysis.
-func (a *Applier) ApplyAnalysis(ctx context.Context, analysisReq dtrack.AnalysisRequest) error {
+func (a *Applier) Start(ctx context.Context, auditResultChan <-chan interface{}) error {
+	a.logger.Debug().Msg("starting")
+
+	for auditResult := range auditResultChan {
+		switch res := auditResult.(type) {
+		case dtrack.AnalysisRequest:
+			submitErr := a.applyAnalysis(ctx, res)
+			if submitErr != nil {
+				a.logger.Error().Err(submitErr).
+					Interface("request", res).
+					Msg("failed to apply analysis request")
+			}
+		case dtrack.ViolationAnalysisRequest:
+			submitErr := a.applyViolationAnalysis(ctx, res)
+			if submitErr != nil {
+				a.logger.Error().Err(submitErr).
+					Interface("request", res).
+					Msg("failed to apply violation analysis request")
+			}
+		}
+	}
+
+	a.logger.Debug().Str("reason", "audit result channel closed").Msg("stopping")
+
+	return nil
+}
+
+// SetDryRun toggles the dry run mode.
+// When in dry run mode, analyses will only be logged, but not applied.
+func (a *Applier) SetDryRun(dryRun bool) {
+	a.dryRun = dryRun
+}
+
+// applyAnalysis applies an analysis.
+func (a *Applier) applyAnalysis(ctx context.Context, analysisReq dtrack.AnalysisRequest) error {
 	var existingAnalysis *dtrack.Analysis
 	if analysis, err := a.analysisSvc.Get(ctx, analysisReq.Component, analysisReq.Project, analysisReq.Vulnerability); err == nil {
 		existingAnalysis = &analysis
@@ -103,8 +136,8 @@ func (a *Applier) ApplyAnalysis(ctx context.Context, analysisReq dtrack.Analysis
 	return nil
 }
 
-// ApplyViolationAnalysis applies a violation analysis.
-func (a *Applier) ApplyViolationAnalysis(ctx context.Context, analysisReq dtrack.ViolationAnalysisRequest) error {
+// applyViolationAnalysis applies a violation analysis.
+func (a *Applier) applyViolationAnalysis(ctx context.Context, analysisReq dtrack.ViolationAnalysisRequest) error {
 	var existingAnalysis *dtrack.ViolationAnalysis
 	if analysis, err := a.violationAnalysisSvc.Get(ctx, analysisReq.Component, analysisReq.PolicyViolation); err == nil {
 		existingAnalysis = &analysis
@@ -168,12 +201,6 @@ func (a *Applier) ApplyViolationAnalysis(ctx context.Context, analysisReq dtrack
 	totalApplied.WithLabelValues(metricsLabelStatusSuccess, metricsLabelTypeViolation).Inc()
 
 	return nil
-}
-
-// SetDryRun toggles the dry run mode.
-// When in dry run mode, analyses will only be logged, but not applied.
-func (a *Applier) SetDryRun(dryRun bool) {
-	a.dryRun = dryRun
 }
 
 // analysisService is an interface for parts of the Dependency-Track

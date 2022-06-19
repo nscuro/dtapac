@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -24,7 +25,17 @@ type Server struct {
 	logger          zerolog.Logger
 }
 
-func NewServer(addr string, dtClient *dtrack.Client, auditor audit.Auditor, logger zerolog.Logger) *Server {
+func NewServer(addr string, dtClient *dtrack.Client, auditor audit.Auditor, logger zerolog.Logger) (*Server, error) {
+	if addr == "" {
+		return nil, fmt.Errorf("no address provided")
+	}
+	if dtClient == nil {
+		return nil, fmt.Errorf("no dependency-track client provided")
+	}
+	if auditor == nil {
+		return nil, fmt.Errorf("no auditor provided")
+	}
+
 	auditChan := make(chan any, 1)
 	opaStatusChan := make(chan opa.Status, 1)
 
@@ -48,7 +59,7 @@ func NewServer(addr string, dtClient *dtrack.Client, auditor audit.Auditor, logg
 		auditResultChan: auditChan,
 		opaStatusChan:   opaStatusChan,
 		logger:          logger,
-	}
+	}, nil
 }
 
 // ServeHTTP implements the http.Handler interface.
@@ -76,7 +87,7 @@ func (s Server) Start() error {
 
 // Stop shuts the server down.
 func (s Server) Stop() error {
-	s.logger.Debug().Msg("stopping")
+	s.logger.Debug().Str("reason", "shutdown requested").Msg("stopping")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

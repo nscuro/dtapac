@@ -2,6 +2,7 @@ package opa
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/rs/zerolog"
@@ -13,26 +14,36 @@ type BundleWatcher struct {
 	bundleName     string
 	bundleRevision string
 	statusChan     <-chan Status
-	subscriptions  []chan<- string
+	updateChan     chan string
 	logger         zerolog.Logger
 }
 
-func NewBundleWatcher(bundleName string, statusChan <-chan Status, logger zerolog.Logger) *BundleWatcher {
+func NewBundleWatcher(bundleName string, statusChan <-chan Status, logger zerolog.Logger) (*BundleWatcher, error) {
+	if statusChan == nil {
+		return nil, fmt.Errorf("no opa status channel provided")
+	}
+
 	return &BundleWatcher{
 		bundleName: bundleName,
 		statusChan: statusChan,
+		updateChan: make(chan string, 1),
 		logger:     logger,
-	}
+	}, nil
 }
 
 func (bw *BundleWatcher) Start(ctx context.Context) error {
-	defer func() {
-		for i := range bw.subscriptions {
-			close(bw.subscriptions[i])
-		}
-	}()
+	defer close(bw.updateChan)
 
-	bw.logger.Debug().Msgf("watching bundle %s for changes", bw.bundleName)
+	bw.logger.Debug().Msg("starting")
+
+	if bw.bundleName == "" {
+		bw.logger.Warn().
+			Str("reason", "no bundle name configured").
+			Msg("not watching for bundle updates")
+		return nil
+	}
+
+	bw.logger.Debug().Str("bundle", bw.bundleName).Msg("watching bundle for changes")
 
 	var (
 		status Status
@@ -62,11 +73,9 @@ func (bw *BundleWatcher) Start(ctx context.Context) error {
 					Str("revision", bundle.ActiveRevision).
 					Msg("bundle update detected")
 
-				for i := range bw.subscriptions {
-					select {
-					case bw.subscriptions[i] <- bundle.ActiveRevision:
-					default:
-					}
+				select {
+				case bw.updateChan <- bundle.ActiveRevision:
+				default:
 				}
 			} else {
 				bw.logger.Debug().
@@ -78,15 +87,10 @@ func (bw *BundleWatcher) Start(ctx context.Context) error {
 	}
 }
 
-// Subscribe adds and returns a new subscription to bundle updates.
-func (bw *BundleWatcher) Subscribe() <-chan string {
-	bw.Lock()
-	defer bw.Unlock()
-
-	subChan := make(chan string)
-	bw.subscriptions = append(bw.subscriptions, subChan)
-
-	return subChan
+// UpdateChan returns the channel for bundle updates.
+// Items sent over the channel are revisions of the updated bundle.
+func (bw *BundleWatcher) UpdateChan() <-chan string {
+	return bw.updateChan
 }
 
 func (bw *BundleWatcher) updateBundleRevision(name, revision string) bool {
