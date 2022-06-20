@@ -1,30 +1,24 @@
 version: "3"
 
 services:
+  dtrack:
+    image: dependencytrack/bundled:4.5.0@sha256:eb8d446d41a03bae46aa9a68692de08ba62946994563287c100d245471a09812
+    ports:
+    - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
   dtapac:
-    build: .
-    depends_on:
-    - dtrack
-    - opa
+    build: ../../../
     environment:
       DTRACK_URL: "http://dtrack:8080"
-      DTRACK_APIKEY: "${DTRACK_APIKEY}"
+      DTRACK_APIKEY: "changeme"
       OPA_URL: "http://opa:8181"
       WATCH_BUNDLE: "dtapac"
       FINDING_POLICY_PATH: "/dtapac/finding"
       VIOLATION_POLICY_PATH: "/dtapac/violation"
-    networks:
-    - public
+      LOG_LEVEL: "debug"
     ports:
     - "127.0.0.1:8081:8080"
-    restart: unless-stopped
-
-  dtrack:
-    image: dependencytrack/bundled:4.5.0@sha256:eb8d446d41a03bae46aa9a68692de08ba62946994563287c100d245471a09812
-    networks:
-    - public
-    ports:
-    - "127.0.0.1:8080:8080"
     restart: unless-stopped
 
   opa:
@@ -33,30 +27,20 @@ services:
     - run
     - --server
     # (Periodically) pull bundle from nginx
-    - --set=services.bundle_server.url=http://opa_bundle_server
-    - --set=bundles.dtapac.service=bundle_server
+    - --set=services.bundleserver.url=http://opa_bundleserver
+    - --set=bundles.dtapac.service=bundleserver
     - --set=bundles.dtapac.resource=bundles/dtapac.tar.gz
     # Send status notifications to dtapac
     - --set=services.dtapac.url=http://dtapac:8080/api/v1/opa
     - --set=status.service=dtapac
     depends_on:
-    - opa_bundle_server
-    networks:
-    - opa_internal
-    - public
+    - opa_bundleserver
     ports:
     - "127.0.0.1:8181:8181"
     restart: unless-stopped
 
-  opa_bundle_server:
+  opa_bundleserver:
     image: nginx:1.22.0-alpine@sha256:f335d7436887b39393409261603fb248e0c385ec18997d866dd44f7e9b621096
-    networks:
-    - opa_internal
     volumes:
-    - "./examples/bundles:/usr/share/nginx/html/bundles:ro"
+    - "../../bundles:/usr/share/nginx/html/bundles:ro"
     restart: unless-stopped
-
-networks:
-  public: {}
-  opa_internal:
-    internal: true
