@@ -67,10 +67,14 @@ sequenceDiagram
 This ensures that the audit trail won't be cluttered with redundant information, even if *dtapac* receives multiple 
 notifications for the same finding or policy violation.
 
+Note  that this also means that if you make changes to an analysis that *dtapac* applied for you in Dependency-Track,
+*dtapac* will override it during its next execution. This is by design.
+
 ### Portfolio auditing on policy change
 
-If configured, *dtapac* can listen for [status updates](https://www.openpolicyagent.org/docs/latest/management-status/) from OPA. 
-*dtapac* will keep track of the revision of the policy bundle, and trigger a portfolio-wide analysis if the revision changed.
+If configured, *dtapac* can listen for [status updates](https://www.openpolicyagent.org/docs/latest/management-status/) 
+from OPA. *dtapac* will keep track of the revision of the policy bundle, and trigger a portfolio-wide analysis when it 
+changes.
 
 ```mermaid
 sequenceDiagram
@@ -140,31 +144,84 @@ FLAGS
 
 ## Deployment
 
-### Docker Compose
+### Get an API key
 
-See [`docker-compose.yml`](./docker-compose.yml).
+For *dtapac* to be able to use the Dependency-Track API, it needs an API key
+with the following permissions:
+
+| Permission                  | Reason                              |
+|:----------------------------|:------------------------------------|
+| `VIEW_PORTFOLIO`            | Fetch project + component info      |
+| `VIEW_VULNERABILITY`        | Fetch findings + vulnerability info |
+| `VULNERABILITY_ANALYSIS`    | Apply analyses to findings          |
+| `VIEW_POLICY_VIOLATION`     | Fetch policy violations             |
+| `POLICY_VIOLATION_ANALYSIS` | Apply analyses to policy violations |
+
+It's recommended to create a dedicated team for *dtapac*, like so:
+
+![Team Permissions](./.github/images/deploy_team.png)
+
+### Set up a webhook
+
+Create a new alert with scope `Portfolio` and publisher `Outbound Webhook`:
+
+![Create Alert](./.github/images/deploy_create-alert.png)
+
+Point the destination to *dtapac*'s `/api/v1/dtrack/notification` endpoint and enable the
+`NEW_VULNERABILITY` and `POLICY_VIOLATION` groups:
+
+![Configure Alert](./.github/images/deploy_alert.png)
+
+Goes without saying that you should use a domain or hostname that is reach- and resolvable by 
+your Dependency-Track instance.
+
+## Policy Management
+
+It is generally a good idea to keep your policies in their own Git repository.
+Treat it just like any other code in your SDLC:
+
+* Write tests
+* Create pull requests
+* Perform code reviews
+* Have a CI pipeline
+
+In your policy CI pipeline, you should:
+
+* [Check](https://www.openpolicyagent.org/docs/latest/cli/#opa-check) your policies using [strict mode](https://www.openpolicyagent.org/docs/latest/strict/) and [schemas](https://www.openpolicyagent.org/docs/latest/schemas/)
+   * You can use the input schemas in [`./examples/schemas`](./examples/policies)
+   * If you want to write your own schemas, be aware of the [limitations](https://www.openpolicyagent.org/docs/latest/schemas/#limitations)
+* [Test](https://www.openpolicyagent.org/docs/latest/policy-testing/) your policies
+* Package your policies into a [bundle](https://www.openpolicyagent.org/docs/latest/management-bundles/#bundle-file-format)
+   * Always set a `revision` (using the Git commit hash makes sense)
+* (Optional) Push the bundle to a server [compatible](https://www.openpolicyagent.org/docs/latest/management-bundles/#implementations) with OPA's bundle API
+
+Check out the [Policy CI](./.github/workflows/policy-ci.yml) workflow if you need some inspiration.
 
 ## Writing Policies
 
-### Overview
-
-Please take a moment to read a little about [OPA](https://www.openpolicyagent.org/docs/latest/) and its 
-[policy language Rego](https://www.openpolicyagent.org/docs/latest/policy-language/).
+Please take a moment to read a little about [OPA](https://www.openpolicyagent.org/docs/latest/) and its
+[policy language Rego](https://www.openpolicyagent.org/docs/latest/policy-language/). I can also recommend
+the [Rego style guide](https://github.com/StyraInc/rego-style-guide) for a little more hands-on advice.
 
 Policies for *dtapac* must adhere to the following guidelines:
 
 1. Result MUST be named `analysis`
 2. Result MUST be an object
 3. There MUST be exactly one result named `analysis`
-   * In case of conflicting rules, use [`else`](https://www.openpolicyagent.org/docs/latest/faq/#statement-order)
+    * In case of conflicting rules, use [`else`](https://www.openpolicyagent.org/docs/latest/faq/#statement-order)
+    * [Incremental definitions](https://www.openpolicyagent.org/docs/latest/policy-language/#incremental-definitions) are NOT supported
 4. If no rule is matched, an empty object MUST be returned
-   * Use `default analysis = {}` for this
+    * Use `default analysis = {}` for this
+5. Policies for findings and violations MUST be in separate packages
+    * For example, use `package dtapac.finding` for findings and `package dtapac.violation` for violations
 
 Have a look at the example policies at [`./examples/policies`](./examples/policies) if you need inspiration.
 
 ### Inputs
 
 #### Finding
+
+For findings, the `input` document is structured as follows:
 
 ```json
 {
@@ -174,33 +231,54 @@ Have a look at the example policies at [`./examples/policies`](./examples/polici
 }
 ```
 
+The available properties of those fields are documented here:
+
 * [`component`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Component)
 * [`project`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Project)
 * [`vulnerability`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Vulnerability)
+
+Obviously not all properties are always available.
 
 ##### Example
 
 ```json
 {
   "component": {
-    "uuid": "508f602f-9fd9-40b7-9330-b06e97b1560f",
-    "name": "acme-lib",
-    "version": "1.0.0"
+    "group": "com.h2database",
+    "isInternal": false,
+    "md5": "18c05829a03b92c0880f22a3c4d1d11d",
+    "name": "h2",
+    "purl": "pkg:maven/com.h2database/h2@1.4.200?type=jar",
+    "sha1": "f7533fe7cb8e99c87a43d325a77b4b678ad9031a",
+    "sha256": "3ad9ac4b6aae9cd9d3ac1c447465e1ed06019b851b893dd6a8d76ddb6d85bca6",
+    "sha512": "d1ed996ff57ac22ab10cfcd1831633de20be80982f127f8ab4fdd59bef37457c0882c67ae825d8070c4d9599de93e80ff3860ae9ab66f1102f3b9e8eddb4d883",
+    "uuid": "f1f6fd0a-6dbb-4aab-a1f4-9b0c21754ee8",
+    "version": "1.4.200"
   },
   "project": {
-    "uuid": "0197ba77-1ab9-46a4-8130-20aa96158032",
     "name": "acme-app",
-    "version": "LATEST"
+    "tags": [
+      {
+        "name": "env/production"
+      }
+    ],
+    "uuid": "8f8203ab-42e0-4d86-a452-a219f5c68daf",
+    "version": "1.2.3"
   },
   "vulnerability": {
-    "uuid": "03e377f5-d78e-4851-89a2-e659e9ac8439",
-    "vulnId": "CVE-XXXX-XXXX",
-    "source": "NVD"
+    "cvssV2BaseScore": 10,
+    "cvssV3BaseScore": 9.8,
+    "description": "H2 Console before 2.1.210 allows remote attackers to execute arbitrary code via a jdbc:h2:mem JDBC URL containing the IGNORE_UNKNOWN_SETTINGS=TRUE;FORBID_CREATION=FALSE;INIT=RUNSCRIPT substring, a different vulnerability than CVE-2021-42392.",
+    "source": "NVD",
+    "uuid": "21d0e27a-c05f-40b8-a986-0e1c19fb288e",
+    "vulnId": "CVE-2022-23221"
   }
 }
 ```
 
 #### Violation
+
+For policy violations, the `input` document is structured as follows:
 
 ```json
 {
@@ -209,6 +287,8 @@ Have a look at the example policies at [`./examples/policies`](./examples/polici
   "policyViolation": {}
 }
 ```
+
+The available properties of those fields are documented here:
 
 * [`component`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Component)
 * [`project`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Project)
@@ -219,9 +299,16 @@ Have a look at the example policies at [`./examples/policies`](./examples/polici
 ```json
 {
   "component": {
-    "uuid": "508f602f-9fd9-40b7-9330-b06e97b1560f",
-    "name": "acme-lib",
-    "version": "1.0.0"
+    "group": "com.h2database",
+    "isInternal": false,
+    "md5": "18c05829a03b92c0880f22a3c4d1d11d",
+    "name": "h2",
+    "purl": "pkg:maven/com.h2database/h2@1.4.200?type=jar",
+    "sha1": "f7533fe7cb8e99c87a43d325a77b4b678ad9031a",
+    "sha256": "3ad9ac4b6aae9cd9d3ac1c447465e1ed06019b851b893dd6a8d76ddb6d85bca6",
+    "sha512": "d1ed996ff57ac22ab10cfcd1831633de20be80982f127f8ab4fdd59bef37457c0882c67ae825d8070c4d9599de93e80ff3860ae9ab66f1102f3b9e8eddb4d883",
+    "uuid": "f1f6fd0a-6dbb-4aab-a1f4-9b0c21754ee8",
+    "version": "1.4.200"
   },
   "policyViolation": {
     "uuid": "9e3330f7-40f6-4121-a5f2-13fc67c4e36d",
@@ -230,7 +317,7 @@ Have a look at the example policies at [`./examples/policies`](./examples/polici
       "uuid": "6159e278-26f1-490c-921b-e6d3adf0ee4b",
       "operator": "MATCHES",
       "subject": "COORDINATES",
-      "value": "{\"group\":\"*\",\"name\":\"acme-lib\",\"version\":\"*\"}",
+      "value": "{\"group\":\"*\",\"name\":\"h2\",\"version\":\"*\"}",
       "policy": {
         "uuid": "8fc2b2fd-2535-4e45-8d73-ffc1cce0ff13",
         "name": "ACME Policy",
@@ -239,9 +326,14 @@ Have a look at the example policies at [`./examples/policies`](./examples/polici
     }
   },
   "project": {
-    "uuid": "0197ba77-1ab9-46a4-8130-20aa96158032",
     "name": "acme-app",
-    "version": "LATEST"
+    "tags": [
+      {
+        "name": "env/production"
+      }
+    ],
+    "uuid": "8f8203ab-42e0-4d86-a452-a219f5c68daf",
+    "version": "1.2.3"
   }
 }
 ```
@@ -250,126 +342,49 @@ Have a look at the example policies at [`./examples/policies`](./examples/polici
 
 #### Finding
 
-TBD
+A finding analysis has the same fields as in the Dependency-Track UI:
 
 ```json
+{
+  "state": "",
+  "justification": "",
+  "response": "",
+  "details": "",
+  "comment": "",
+  "suppress": false
+}
 ```
+
+You can set all fields, or none. No field is strictly required, but it's good practice to at least provide
+a `state`, and a `comment` or `justification`. 
 
 ##### Example
 
-TBD
+```json
+{
+  "state": "EXPLOITABLE",
+  "details": "Exploitable because I say so."
+}
+```
 
 #### Violation
 
-TBD
+A violation analysis has the same fields as in the Dependency-Track UI:
 
 ```json
+{
+   "state": "",
+   "comment": "",
+   "suppress": false
+}
 ```
 
 ##### Example
 
-TBD
-
 ```json
-```
-
-## Policy Management
-
-This section is for folks who do not have prior experience with PaC. If you do, and you already have well-established
-processes around it, you can skip this section.
-
-It is generally a good idea to keep your policies in their own Git repository. Treat it just like any other code
-in your SDLC:
-
-* Write tests
-* Create pull requests
-* Perform code reviews
-* Have a CI pipeline
-
-In your policy CI pipeline, you should:
-
-* [Type check](https://www.openpolicyagent.org/docs/latest/schemas/) your policies
-  * You can use the input schemas in [`./examples/schemas`](./examples/policies)
-  * If you want to write your own schemas, be aware of the [limitations](https://www.openpolicyagent.org/docs/latest/schemas/#limitations)
-* [Test](https://www.openpolicyagent.org/docs/latest/policy-testing/) your policies
-* Package your policies into a [bundle](https://www.openpolicyagent.org/docs/latest/management-bundles/#bundle-file-format)
-  * Always set a `revision` (using the Git commit makes sense here)
-* (Optional) Push the bundle to a server [compatible](https://www.openpolicyagent.org/docs/latest/management-bundles/#implementations) with OPA's bundle API
-
-Check out the [*Policy CI*](./.github/workflows/policy-ci.yml) workflow if you need some inspiration. 
-
-## Use Cases
-
-### Duplicate Vulnerabilities
-
-It can happen that multiple vulnerability sources report separate issues for the same vulnerability.
-For example, a CVE and a GitHub advisory may be about the same vulnerability, but both are reported separately.
-This skews the risk scoring and increases manual auditing efforts, especially if multiple projects are affected by this.
-
-While Dependency-Track [will support](https://github.com/DependencyTrack/dependency-track/issues/1642) deduplication in 
-a future release, for the time being it may be desirable to suppress known duplicates throughout the entire portfolio.
-
-```rego
-package dtapac.finding
-
-default analysis = {}
-
-analysis = res {
-    duplicatedVuln := {
-        "6795ec44-f810-47aa-a22e-5d817e52cbdc": "GHSA-36p3-wjmg-h94x",
-    }[input.vulnerability.vulnId]
-    
-    res := {
-        "state": "FALSE_POSITIVE",
-        "comment": sprintf("Duplicate of %s.", [duplicatedVuln]),
-        "suppress": true,
-    }
-}
-```
-
-### False Positives
-
-Similarly to duplicate vulnerabilities, sometimes a reported vulnerability is just plain a false positive.
-
-```rego
-package dtapac.finding
-
-default analysis = {}
-
-analysis = res {
-    input.component.group == "com.acme"
-    input.component.name == "acme-lib"
-    input.vulnerability.vulnId == "CVE-20XX-XXXXX"
-  
-    res := {
-      "state": "FALSE_POSITIVE",
-      "details": sprintf("%s does not affect %s", [input.vulnerability.vulnId, input.component.name]),
-      "suppress": true,
-    }
-}
-```
-
-### Ignoring of vulnerabilities in test-only dependencies
-
-Depending on how you track risk, you may choose to ignore vulnerabilities affecting components that are exclusively
-used in testing. A common example would be embedded databases that frequently have vulnerabilities, but are
-never used in a production setting.
-
-```rego
-package dtapac.finding
-
-default analysis = {}
-
-analysis = res {
-    input.project.name == "acme-app"
-    input.component.group == "com.h2database"
-    input.component.name == "h2"
-    
-    res := {
-        "state": "NOT_AFFECTED",
-        "justification": "CODE_NOT_REACHABLE",
-        "details": "h2 is exclusively used for unit tests.",
-        "suppress": true,
-    }
+{
+   "state": "APPROVED",
+   "comment": "Bill paid me to approve all his violations.",
+   "suppress": true
 }
 ```
