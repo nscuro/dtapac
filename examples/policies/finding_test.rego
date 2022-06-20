@@ -15,21 +15,41 @@ test_ossindex_legacy {
         }
     }
 
-    count(res) == 2
+    count(res) == 3
+    res.state == "RESOLVED"
     count(res.details) > 0
     res.suppress
 }
 
-# Verify that all findings for the acme-test project will be suppressed.
-test_analysis_acmetest {
+# Verify that duplicate vulnerabilities will be suppressed.
+test_duplicates {
     res := analysis with input as {
-        "project": {
-            "name": "acme-test"
+        "vulnerability": {
+            "vulnId": "GHSA-r695-7vr9-jgc2"
         }
     }
 
-    count(res) == 2
-    res.details == "acme-test is a test project that isn't deployed anywhere."
+    count(res) == 3
+    res.state == "RESOLVED"
+    res.details == "Duplicate of CVE-2020-36187."
+    res.suppress
+}
+
+test_acmeapp_h2 {
+    res := analysis with input as {
+        "component": {
+            "group": "com.h2database",
+            "name": "h2",
+        },
+        "project": {
+            "name": "acme-app"
+        }
+    }
+
+    count(res) == 4
+    res.state == "NOT_AFFECTED"
+    res.justification == "CODE_NOT_REACHABLE"
+    count(res.details) > 0
     res.suppress
 }
 
@@ -52,24 +72,19 @@ test_analysis_cameljetty9 {
     res.suppress
 }
 
-# Verify that the suppression of all findings for acme-test takes
-# precedence over the camel-jetty9 specific rule.
-test_analysis_acmetest_cameljetty9 {
+# Verify that log4shell occurrences are flagged as exploitable.
+test_log4shell {
     res := analysis with input as {
         "component": {
-            "group": "org.apache.camel",
-            "name": "camel-jetty9",
-            "version": "2.19.0"
-        },
-        "project": {
-            "name": "acme-test"
+            "name": "log4j-core"
         },
         "vulnerability": {
-            "vulnId": "CVE-2019-0188"
+            "vulnId": "CVE-2021-44228"
         }
     }
 
-    count(res) == 2
-    res.details == "acme-test is a test project that isn't deployed anywhere."
-    res.suppress
+    count(res) == 3
+    res.state == "EXPLOITABLE"
+    count(res.comment) > 0
+    not res.suppress
 }

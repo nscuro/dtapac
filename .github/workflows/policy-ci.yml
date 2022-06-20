@@ -27,11 +27,11 @@ jobs:
         version: latest
     - name: Checkout Repository
       uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # tag=v3
-    - name: Type Check
+    - name: Check
       run: >
-        opa eval data.dtapac.${{ matrix.policy }}.analysis
-        --data ./examples/policies/${{ matrix.policy }}.rego
+        opa check ./examples/policies/${{ matrix.policy }}.rego
         --schema ./examples/schemas/${{ matrix.policy }}.schema.json
+        --strict
         --format pretty
     - name: Test
       run: >
