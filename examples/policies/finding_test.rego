@@ -35,14 +35,14 @@ test_duplicates {
     res.suppress
 }
 
-test_acmeapp_h2 {
+test_fluxcapacitor_h2 {
     res := analysis with input as {
         "component": {
             "group": "com.h2database",
             "name": "h2",
         },
         "project": {
-            "name": "acme-app"
+            "name": "Flux Capacitor"
         }
     }
 

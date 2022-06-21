@@ -20,8 +20,8 @@ is definitely suppressing false positives, there are times when other audit acti
 A [suppression file](https://jeremylong.github.io/DependencyCheck/general/suppression.html) as seen in projects like 
 [Dependency-Check](https://jeremylong.github.io/DependencyCheck/) simply won't cut it.
 
-I've written a fair share of tools that provide the desired functionality based on some kind of configuration file 
-(mostly YAML), but I quickly came to the realization that configuration files are too limiting for my needs. 
+I've written a fair share of tools that provide the desired functionality based on some kind of configuration file, 
+but I quickly came to the realization that configuration files are too limiting for my needs. 
 Not only are they not a good fit for dynamic decisions, they are also a pain to test.
 
 It turns out that you can have your cake and eat it too using *policy as code*. The most popular implementation of PaC 
@@ -31,17 +31,19 @@ Think of *dtapac* as a bridge between Dependency-Track and OPA.
 
 ![Overview](./.github/images/overview.png)
 
-> Note that *dtapac* as it stands now is *not* intended for performing all auditing through it. 
-> Don't use it for decisions that are project-specific. Use it for decisions that are likely to affects larger
-> parts of your portfolio. A few sample [use cases](#use-cases) are listed at the bottom of this document.
+> Note that *dtapac* as it stands now is **not** intended for performing all auditing through it.
+> It's not a complete replacement for manual auditing. Use it for decisions that are likely to affect larger
+> parts of your portfolio. Check the [example policies](./examples/policies) to get an idea of what *dtapac*
+> can be used for.
 
 ## How it works
 
 ### Ad-hoc auditing through notifications
 
 The main way that *dtapac* uses to integrate with Dependency-Track is by consuming 
-[notifications](https://docs.dependencytrack.org/integrations/notifications/). When receiving a `NEW_VULNERABILITY` or 
-`POLICY_VIOLATION` notification, *dtapac* will immediately query OPA for an analysis decision. 
+[notifications](https://docs.dependencytrack.org/integrations/notifications/) (aka alerts). 
+When receiving a `NEW_VULNERABILITY` or `POLICY_VIOLATION` notification, *dtapac* will immediately 
+query OPA for an analysis decision. 
 
 ```mermaid
 sequenceDiagram
@@ -69,7 +71,7 @@ sequenceDiagram
 This ensures that the audit trail won't be cluttered with redundant information, even if *dtapac* receives multiple 
 notifications for the same finding or policy violation.
 
-Note  that this also means that if you make changes to an analysis that *dtapac* applied for you in Dependency-Track,
+Note that this also means that if you make changes to an analysis that *dtapac* applied for you in Dependency-Track,
 *dtapac* will override it during its next execution. This is by design.
 
 ### Portfolio auditing on policy change
@@ -119,7 +121,8 @@ Some limitations of *dtapac* that you should be aware of before using it:
 
 * **No retries**. If an analysis decision could not be submitted to Dependency-Track for any reason, it won't be retried.
 * **No persistence**. If you stop *dtapac* while it's still processing something, that something is gone.
-* **No access control**. *dtapac* trusts that whatever is inside the notifications it receives is valid. Notifications can be forged. Deploy *dtapac* to an internal network or use a service mesh.
+* **No access control**. *dtapac* trusts that whatever is inside the notifications it receives is valid. Notifications can be forged. Expose *dtapac* to an internal network or use a service mesh.
+  * [Webhook authentication](https://github.com/DependencyTrack/dependency-track/issues/1555) is a planned feature in Dependency-Track.
 
 ## Usage
 
@@ -144,66 +147,43 @@ FLAGS
   -watch-bundle ...           OPA bundle to watch
 ```
 
-## Deployment
-
-### Get an API key
-
-For *dtapac* to be able to use the Dependency-Track API, it needs an API key
-with the following permissions:
-
-| Permission                  | Reason                              |
-|:----------------------------|:------------------------------------|
-| `VIEW_PORTFOLIO`            | Fetch project + component info      |
-| `VIEW_VULNERABILITY`        | Fetch findings + vulnerability info |
-| `VULNERABILITY_ANALYSIS`    | Apply analyses to findings          |
-| `VIEW_POLICY_VIOLATION`     | Fetch policy violations             |
-| `POLICY_VIOLATION_ANALYSIS` | Apply analyses to policy violations |
-
-It's recommended to create a dedicated team for *dtapac*, like so:
-
-![Team Permissions](./.github/images/deploy_team.png)
-
-### Set up a webhook
-
-Create a new alert with scope `Portfolio` and publisher `Outbound Webhook`:
-
-![Create Alert](./.github/images/deploy_create-alert.png)
-
-Point the destination to *dtapac*'s `/api/v1/dtrack/notification` endpoint and enable the
-`NEW_VULNERABILITY` and `POLICY_VIOLATION` groups:
-
-![Configure Alert](./.github/images/deploy_alert.png)
-
-Goes without saying that you should use a domain or hostname that is reach- and resolvable by 
-your Dependency-Track instance.
-
-## Policy Management
-
-It is generally a good idea to keep your policies in their own Git repository.
-Treat it just like any other code in your SDLC:
-
-* Write tests
-* Create pull requests
-* Perform code reviews
-* Have a CI pipeline
-
-In your policy CI pipeline, you should:
-
-* [Check](https://www.openpolicyagent.org/docs/latest/cli/#opa-check) your policies using [strict mode](https://www.openpolicyagent.org/docs/latest/strict/) and [schemas](https://www.openpolicyagent.org/docs/latest/schemas/)
-   * You can use the input schemas in [`./examples/schemas`](./examples/policies)
-   * If you want to write your own schemas, be aware of the [limitations](https://www.openpolicyagent.org/docs/latest/schemas/#limitations)
-* [Test](https://www.openpolicyagent.org/docs/latest/policy-testing/) your policies
-* Package your policies into a [bundle](https://www.openpolicyagent.org/docs/latest/management-bundles/#bundle-file-format)
-   * Always set a `revision` (using the Git commit hash makes sense)
-* (Optional) Push the bundle to a server [compatible](https://www.openpolicyagent.org/docs/latest/management-bundles/#implementations) with OPA's bundle API
-
-Check out the [Policy CI](./.github/workflows/policy-ci.yml) workflow if you need some inspiration.
+All options can alternatively be provided via configuration file and environment variables.
 
 ## Writing Policies
 
-Please take a moment to read a little about [OPA](https://www.openpolicyagent.org/docs/latest/) and its
-[policy language Rego](https://www.openpolicyagent.org/docs/latest/policy-language/). I can also recommend
+The basic idea is that a policy receives a finding or policy violation as input and returns an analysis.
+
+![Policy Overview](./.github/images/policy_overview.png)
+
+OPA's policy language is powerful yet concise and is a perfect fit for our use case.
+
+Please take a moment to read a little about [OPA](https://www.openpolicyagent.org/docs/latest/) and
+[Rego](https://www.openpolicyagent.org/docs/latest/policy-language/). I can also recommend
 the [Rego style guide](https://github.com/StyraInc/rego-style-guide) for a little more hands-on advice.
+
+### Structure
+
+Policies written in Rego are designed to return either one or multiple results. If a policy is written in a way
+that only allows for a single result, OPA will fail when multiple rules match the given input. If a policy allows
+for multiple results, OPA (per default) makes no guarantees regarding the order in which results are returned.
+
+This behavior is problematic for *dtapac* for the following reasons:
+
+* For any given finding or violation, there should always be *exactly one* analysis, or none at all
+  * Multiple analyses for the same finding make no sense
+* It is inevitable that multiple policy rules match
+  * If one rule matches on vulnerability V, and another on component C, both will match an alert about C being affected by V
+
+Luckily, OPA provides a way to indicate that the first matching rule should take precedence over others: [`else`](https://www.openpolicyagent.org/docs/latest/faq/#statement-order).
+Policies for *dtapac* thus must be more or less a single if-else-statement (refer to the [example policies](./examples/policies) 
+to see how that looks like).
+
+You as policy author have to ensure that you define your rules in an order that fits your requirements.
+For example, ordering them by applicability from broad to specific:
+
+![Policy Structure](./.github/images/policy_structure.png)
+
+### Guidelines
 
 Policies for *dtapac* must adhere to the following guidelines:
 
@@ -390,3 +370,58 @@ A violation analysis has the same fields as in the Dependency-Track UI:
    "suppress": true
 }
 ```
+
+## Policy Management
+
+It is generally a good idea to keep your policies in their own Git repository.
+Treat it just like any other code in your SDLC:
+
+* Write tests
+* Create pull requests
+* Perform code reviews
+* Have a CI pipeline
+
+In your policy CI pipeline, you should:
+
+* [Check](https://www.openpolicyagent.org/docs/latest/cli/#opa-check) your policies using [strict mode](https://www.openpolicyagent.org/docs/latest/strict/) and [schemas](https://www.openpolicyagent.org/docs/latest/schemas/)
+    * You can use the input schemas in [`./examples/schemas`](./examples/policies)
+    * If you want to write your own schemas, be aware of the [limitations](https://www.openpolicyagent.org/docs/latest/schemas/#limitations)
+* [Test](https://www.openpolicyagent.org/docs/latest/policy-testing/) your policies
+* Package your policies into a [bundle](https://www.openpolicyagent.org/docs/latest/management-bundles/#bundle-file-format)
+    * Always set a `revision` (using the Git commit hash makes sense)
+* (Optional) Push the bundle to a server [compatible](https://www.openpolicyagent.org/docs/latest/management-bundles/#implementations) with OPA's bundle API
+
+Check out the [Policy CI](./.github/workflows/policy-ci.yml) workflow if you need some inspiration.
+
+## Deployment
+
+### Get an API key
+
+For *dtapac* to be able to use the Dependency-Track API, it needs an API key
+with the following permissions:
+
+| Permission                  | Reason                              |
+|:----------------------------|:------------------------------------|
+| `VIEW_PORTFOLIO`            | Fetch project + component info      |
+| `VIEW_VULNERABILITY`        | Fetch findings + vulnerability info |
+| `VULNERABILITY_ANALYSIS`    | Apply analyses to findings          |
+| `VIEW_POLICY_VIOLATION`     | Fetch policy violations             |
+| `POLICY_VIOLATION_ANALYSIS` | Apply analyses to policy violations |
+
+It's recommended to create a dedicated team for *dtapac*, like so:
+
+![Team Permissions](./.github/images/deploy_team.png)
+
+### Set up a webhook
+
+Create a new alert with scope `Portfolio` and publisher `Outbound Webhook`:
+
+![Create Alert](./.github/images/deploy_create-alert.png)
+
+Point the destination to *dtapac*'s `/api/v1/dtrack/notification` endpoint and enable the
+`NEW_VULNERABILITY` and `POLICY_VIOLATION` groups:
+
+![Configure Alert](./.github/images/deploy_alert.png)
+
+Goes without saying that you should use a domain or hostname that is reach- and resolvable by
+your Dependency-Track instance.

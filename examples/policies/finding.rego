@@ -45,11 +45,11 @@ analysis = res {
 		"suppress": true,
 	}
 } else = res {
-	# Suppress all vulnerabilities in h2 for a specific project.
-	# The project is using h2 only in unit tests and convinced the
-	# security team that ignoring vulns in it is acceptable.
+	# Suppress all vulnerabilities in h2 for a selection of specific projects.
+	# These projects are using h2 only in unit tests and the devs convinced
+	# the security team that ignoring vulns in it is acceptable.
 
-	input.project.name == "acme-app"
+	input.project.name == ["Flux Capacitor", "Mr. Robot"][_]
 	input.component.group == "com.h2database"
 	input.component.name == "h2"
 
