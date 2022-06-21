@@ -29,6 +29,8 @@ probably being [Open Policy Agent](https://www.openpolicyagent.org/) (OPA).
 
 Think of *dtapac* as a bridge between Dependency-Track and OPA.
 
+![Overview](./.github/images/overview.png)
+
 > Note that *dtapac* as it stands now is *not* intended for performing all auditing through it. 
 > Don't use it for decisions that are project-specific. Use it for decisions that are likely to affects larger
 > parts of your portfolio. A few sample [use cases](#use-cases) are listed at the bottom of this document.
