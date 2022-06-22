@@ -27,19 +27,19 @@ services:
     - run
     - --server
     # (Periodically) pull bundle from nginx
-    - --set=services.bundleserver.url=http://opa_bundleserver
+    - --set=services.bundleserver.url=http://nginx
     - --set=bundles.dtapac.service=bundleserver
     - --set=bundles.dtapac.resource=bundles/dtapac.tar.gz
     # Send status notifications to dtapac
     - --set=services.dtapac.url=http://dtapac:8080/api/v1/opa
     - --set=status.service=dtapac
     depends_on:
-    - opa_bundleserver
+    - nginx
     ports:
     - "127.0.0.1:8181:8181"
     restart: unless-stopped
 
-  opa_bundleserver:
+  nginx:
     image: nginx:1.22.0-alpine@sha256:f335d7436887b39393409261603fb248e0c385ec18997d866dd44f7e9b621096
     volumes:
     - "../../bundles:/usr/share/nginx/html/bundles:ro"

@@ -395,6 +395,27 @@ Check out the [Policy CI](./.github/workflows/policy-ci.yml) workflow if you nee
 
 ## Deployment
 
+A quick walk through for how to deploy *dtapac* with OPA and NGINX as bundle server.
+We're going to use Docker Compose with [`examples/deployment/with-bundleserver/docker-compose.yml`](./examples/deployment/with-bundleserver/docker-compose.yml) 
+here. Adapt to your existing Dependency-Track deployment as necessary.
+
+### Preparation
+
+Pull images for Dependency-Track, OPA and NGINX, and build the *dtapac* image:
+
+```shell
+docker-compose -f ./examples/deployment/with-bundleserver/docker-compose.yml pull
+docker-compose -f ./examples/deployment/with-bundleserver/docker-compose.yml build --pull
+```
+
+Launch Dependency-Track:
+
+```shell
+docker-compose -f ./examples/deployment/with-bundleserver/docker-compose.yml up -d dtrack
+```
+
+Navigate to `http://localhost:8080` and perform the usual setup.
+
 ### Get an API key
 
 For *dtapac* to be able to use the Dependency-Track API, it needs an API key
@@ -405,12 +426,79 @@ with the following permissions:
 | `VIEW_PORTFOLIO`            | Fetch project + component info      |
 | `VIEW_VULNERABILITY`        | Fetch findings + vulnerability info |
 | `VULNERABILITY_ANALYSIS`    | Apply analyses to findings          |
+| `VULNERABILITY_MANAGEMENT`  | Fetch vulnerability info            |
 | `VIEW_POLICY_VIOLATION`     | Fetch policy violations             |
 | `POLICY_VIOLATION_ANALYSIS` | Apply analyses to policy violations |
 
 It's recommended to create a dedicated team for *dtapac*, like so:
 
 ![Team Permissions](./.github/images/deploy_team.png)
+
+### Setup dtapac
+
+Provide the API key to *dtapac* via `DTRACK_APIKEY` environment variable:
+
+```yaml
+# docker-compose.yml
+
+services:
+  # ...
+  dtapac:
+    # ...
+    environment:
+      # ...
+      DTRACK_APIKEY: "apiKeyFromAbove"
+```
+
+Launch *dtapac*:
+
+```shell
+docker-compose -f ./examples/deployment/with-bundleserver/docker-compose.yml up -d dtapac
+```
+
+### Setup OPA
+
+Create a policy bundle from the [example policies](./examples/policies):
+
+```shell
+make build-example-bundle
+```
+
+The bundle will be created in [`examples/bundles`](./examples/bundles) as `dtapac.tar.gz`.
+The `bundles` directory is mounted into the NGINX container, so that it can be served to OPA.
+
+Launch OPA and NGINX:
+
+```shell
+docker-compose -f ./examples/deployment/with-bundleserver/docker-compose.yml up -d opa
+```
+
+Verify that OPA successfully fetched the bundle by inspecting its logs:
+
+```shell
+docker-compose -f ./examples/deployment/with-bundleserver/docker-compose.yml logs opa
+```
+
+You should see a log entry that says something along the lines of:
+
+```json
+{"level":"info","msg":"Bundle loaded and activated successfully. Etag updated to \"628fc22c-31b\".","name":"dtapac","plugin":"bundle","time":"2022-06-22T20:48:56Z"}
+```
+
+Starting OPA should've also triggered a portfolio analysis in *dtapac*. Verify by inspecting its logs:
+
+```shell
+docker-compose -f ./examples/deployment/with-bundleserver/docker-compose.yml logs -f dtapac
+```
+
+You should see something along the lines of:
+
+```
+with-bundleserver-dtapac-1  | 8:54PM INF bundle update detected bundle=dtapac revision=1f96e28d4d3f81e3e89889cafff81a06a074c644 svc=bundleWatcher
+with-bundleserver-dtapac-1  | 8:54PM INF starting portfolio analysis svc=portfolioAnalyzer
+with-bundleserver-dtapac-1  | 8:54PM DBG fetching projects svc=portfolioAnalyzer
+...
+```
 
 ### Set up a webhook
 
@@ -425,3 +513,34 @@ Point the destination to *dtapac*'s `/api/v1/dtrack/notification` endpoint and e
 
 Goes without saying that you should use a domain or hostname that is reach- and resolvable by
 your Dependency-Track instance.
+
+### Testing
+
+The example policy for findings contains a rule that will suppress all [h2](https://h2database.com/html/main.html) 
+vulnerabilities for projects with name `Flux Capacitor` or `Mr. Robot`. So let's test that, shall we?
+
+Dependency-Track v4.4.2 ships with a vulnerable h2 version.
+
+1. Download the BOM from [here](https://github.com/DependencyTrack/dependency-track/releases/download/4.4.2/bom.json)
+2. In Dependency-Track, create a new project named `Flux Capacitor`, version doesn't matter
+3. Upload the BOM you just downloaded
+4. In a terminal, follow the logs of *dtapac*
+5. Wait for a moment until Dependency-Track finishes its BOM analysis
+
+*dtapac*'s logs should indicate that analyses for h2 related vulnerabilities have been applied, while others
+are not covered by the policy:
+
+```
+with-bundleserver-dtapac-1  | 9:12PM DBG auditing finding finding={"component":"8dad0438-00b7-4250-8409-d8e1008e37bc","project":"21790356-27e4-4ffb-837f-a25afdfdf0ff","vulnerability":"e10e283b-8ade-4e86-8697-3687e3af8b92"} svc=auditor
+with-bundleserver-dtapac-1  | 9:12PM DBG auditing finding finding={"component":"8dad0438-00b7-4250-8409-d8e1008e37bc","project":"21790356-27e4-4ffb-837f-a25afdfdf0ff","vulnerability":"9b93e587-e438-4cc1-aa16-f70618e6f839"} svc=auditor
+with-bundleserver-dtapac-1  | 9:12PM DBG received finding analysis analysis={"comment":"","details":"h2 is only used in unit tests.","justification":"CODE_NOT_REACHABLE","response":"","state":"NOT_AFFECTED","suppress":true} svc=auditor
+with-bundleserver-dtapac-1  | 9:12PM DBG received finding analysis analysis={"comment":"","details":"h2 is only used in unit tests.","justification":"CODE_NOT_REACHABLE","response":"","state":"NOT_AFFECTED","suppress":true} svc=auditor
+with-bundleserver-dtapac-1  | 9:12PM INF applying analysis component=8dad0438-00b7-4250-8409-d8e1008e37bc project=21790356-27e4-4ffb-837f-a25afdfdf0ff svc=applier vulnerability=e10e283b-8ade-4e86-8697-3687e3af8b92
+with-bundleserver-dtapac-1  | 9:12PM DBG auditing finding finding={"component":"64623e22-0bad-4dff-8105-dca956745b38","project":"21790356-27e4-4ffb-837f-a25afdfdf0ff","vulnerability":"c61e52b1-30ca-4f5c-9ec1-b7fd116d4b2c"} svc=auditor
+with-bundleserver-dtapac-1  | 9:12PM DBG finding is not covered by policy finding={"component":"64623e22-0bad-4dff-8105-dca956745b38","project":"21790356-27e4-4ffb-837f-a25afdfdf0ff","vulnerability":"c61e52b1-30ca-4f5c-9ec1-b7fd116d4b2c"} svc=auditor
+with-bundleserver-dtapac-1  | 9:12PM INF applying analysis component=8dad0438-00b7-4250-8409-d8e1008e37bc project=21790356-27e4-4ffb-837f-a25afdfdf0ff svc=applier vulnerability=9b93e587-e438-4cc1-aa16-f70618e6f839
+```
+
+Verify by inspecting the project's findings in the Dependency-Track UI (✅ the *Show suppressed findings* box):
+
+![Applied Analyses in Dependency-Track](./.github/images/test_analyses.png)
