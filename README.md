@@ -12,13 +12,17 @@
 ## Introduction
 
 [Dependency-Track](https://dependencytrack.org/) offers a fairly sophisticated auditing workflow for vulnerabilities 
-and policy violations.
+and policy violations. However, this workflow is scoped to individual findings or policy violations right now.
 
 I often found myself wanting a mechanism that lets me make more generalized audit decisions that would affect
 multiple (and sometimes even *all*) projects in my portfolio. While the most common use case for something like this
 is definitely suppressing false positives, there are times when other audit actions are desirable as well.
 A [suppression file](https://jeremylong.github.io/DependencyCheck/general/suppression.html) as seen in projects like 
 [Dependency-Check](https://jeremylong.github.io/DependencyCheck/) simply won't cut it.
+
+Using scripts to mass-apply analyses works, but then you're stuck with re-running that script everytime the thing
+you analysed pops up in another project or project version. Not cool. Individual scripts also don't scale well,
+sharing with team members is tedious.
 
 I've written a fair share of tools that provide the desired functionality based on some kind of configuration file, 
 but I quickly came to the realization that configuration files are too limiting for my needs. 
