@@ -17,30 +17,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # tag=v3
       with:
         fetch-depth: 0
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@b22fbbc2921299758641fab08929b4ac52b32923 # tag=v3
       with:
         go-version: "1.18"
         check-latest: true
     - name: Set up cyclonedx-gomod
-      uses: CycloneDX/gh-gomod-generate-sbom@v1.1.0
+      uses: CycloneDX/gh-gomod-generate-sbom@d4aee0cf5133055dbd98899978246c10c18c440f # tag=v1.1.0
       with:
         version: v1
     - name: Set up cosign
-      uses: sigstore/cosign-installer@v2.4.0
+      uses: sigstore/cosign-installer@7e0881f8fe90b25e305bbf0309761e9314607e25 # tag=v2.4.0
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
+      uses: docker/setup-qemu-action@8b122486cedac8393e77aa9734c3528886e4a1a8 # tag=v2
     - name: Docker login
-      uses: docker/login-action@v2
+      uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b # tag=v2
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v3.0.0
+      uses: goreleaser/goreleaser-action@68acf3b1adf004ac9c2f0a4259e85c5f66e99bef # tag=v3.0.0
       with:
         version: latest
         args: release --rm-dist
