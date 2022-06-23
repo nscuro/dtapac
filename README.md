@@ -177,6 +177,8 @@ This behavior is problematic for *dtapac* for the following reasons:
   * Multiple analyses for the same finding make no sense
 * It is inevitable that multiple policy rules match
   * If one rule matches on vulnerability V, and another on component C, both will match an alert about C being affected by V
+* If multiple rules match, which one should be applied?
+  * Auditing should be deterministic. If the output of results has no guaranteed order, what's the correct result?
 
 Luckily, OPA provides a way to indicate that the first matching rule should take precedence over others: [`else`](https://www.openpolicyagent.org/docs/latest/faq/#statement-order).
 Policies for *dtapac* thus must be more or less a single if-else-statement (refer to the [example policies](./examples/policies) 
