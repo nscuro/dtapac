@@ -50,10 +50,10 @@ dockers:
   dockerfile: Dockerfile.goreleaser
   use: buildx
   image_templates:
-  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-amd64"
+  - "ghcr.io/nscuro/dtapac:{{ .Tag }}-amd64"
   build_flag_templates:
   - "--platform=linux/amd64"
-  - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+  - "--label=org.opencontainers.image.title=dtapac"
   - "--label=org.opencontainers.image.version={{ .Tag }}"
   - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
   - "--label=org.opencontainers.image.created={{ .Date }}"
@@ -63,32 +63,32 @@ dockers:
   dockerfile: Dockerfile.goreleaser
   use: buildx
   image_templates:
-  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-arm64"
+  - "ghcr.io/nscuro/dtapac:{{ .Tag }}-arm64"
   build_flag_templates:
   - "--platform=linux/arm64"
-  - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+  - "--label=org.opencontainers.image.title=dtapac"
   - "--label=org.opencontainers.image.version={{ .Tag }}"
   - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
   - "--label=org.opencontainers.image.created={{ .Date }}"
   - "--label=org.opencontainers.image.source={{ .GitURL }}"
 
 docker_manifests:
-- name_template: "ghcr.io/nscuro/{{ .ProjectName }}:latest"
+- name_template: "ghcr.io/nscuro/dtapac:latest"
   image_templates:
-  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-amd64"
-  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-arm64"
-- name_template: "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}"
+  - "ghcr.io/nscuro/dtapac:{{ .Tag }}-amd64"
+  - "ghcr.io/nscuro/dtapac:{{ .Tag }}-arm64"
+- name_template: "ghcr.io/nscuro/dtapac:{{ .Tag }}"
   image_templates:
-  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-amd64"
-  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-arm64"
-- name_template: "{{ .Env.docker_repository_owner}}/{{ .ProjectName }}:v{{ .Major }}"
+  - "ghcr.io/nscuro/dtapac:{{ .Tag }}-amd64"
+  - "ghcr.io/nscuro/dtapac:{{ .Tag }}-arm64"
+- name_template: "ghcr.io/nscuro/dtapac:v{{ .Major }}"
   image_templates:
-  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-amd64"
-  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-arm64"
-- name_template: "ghcr.io/nscuro/{{ .ProjectName }}:v{{ .Major }}.{{ .Minor }}"
+  - "ghcr.io/nscuro/dtapac:{{ .Tag }}-amd64"
+  - "ghcr.io/nscuro/dtapac:{{ .Tag }}-arm64"
+- name_template: "ghcr.io/nscuro/dtapac:v{{ .Major }}.{{ .Minor }}"
   image_templates:
-  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-amd64"
-  - "ghcr.io/nscuro/{{ .ProjectName }}:{{ .Tag }}-arm64"
+  - "ghcr.io/nscuro/dtapac:{{ .Tag }}-amd64"
+  - "ghcr.io/nscuro/dtapac:{{ .Tag }}-arm64"
 
 docker_signs:
 - cmd: cosign
