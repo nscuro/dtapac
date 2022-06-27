@@ -107,7 +107,7 @@ func (pa PortfolioAnalyzer) analyzeFindings(ctx context.Context, project dtrack.
 		if auditErr == nil && analysisReq != (dtrack.AnalysisRequest{}) {
 			pa.auditResultChan <- analysisReq
 		} else if auditErr != nil {
-			return fmt.Errorf("failed to audit finding: %w", err)
+			return fmt.Errorf("failed to audit finding: %w", auditErr)
 		}
 	}
 
@@ -134,7 +134,7 @@ func (pa PortfolioAnalyzer) analyzeViolations(ctx context.Context, project dtrac
 		if auditErr == nil && analysisReq != (dtrack.ViolationAnalysisRequest{}) {
 			pa.auditResultChan <- analysisReq
 		} else if auditErr != nil {
-			return fmt.Errorf("failed to audit policy violation: %w", err)
+			return fmt.Errorf("failed to audit policy violation: %w", auditErr)
 		}
 	}
 
