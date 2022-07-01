@@ -103,7 +103,7 @@ func (a OPAAuditor) AuditViolation(ctx context.Context, violation Violation) (re
 		return
 	}
 
-	totalAudited.WithLabelValues("violation").Inc()
+	totalAudited.WithLabelValues(metricsLabelStatusSuccess, metricsLabelTypeViolation).Inc()
 	a.logger.Debug().Object("analysis", analysis).Msg("received violation analysis")
 
 	req = dtrack.ViolationAnalysisRequest{
