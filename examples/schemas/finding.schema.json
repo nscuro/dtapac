@@ -1,13 +1,30 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema",
-  "type": "object",
-  "properties": {
-    "component": {
-      "type": "object",
+  "$schema": "http://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nscuro/dtapac/internal/audit/finding",
+  "$ref": "#/$defs/Finding",
+  "$defs": {
+    "CWE": {
+      "properties": {
+        "cweId": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Component": {
       "properties": {
         "uuid": {
           "type": "string",
           "format": "uuid"
+        },
+        "author": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
         },
         "group": {
           "type": "string"
@@ -16,6 +33,15 @@
           "type": "string"
         },
         "version": {
+          "type": "string"
+        },
+        "classifier": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "extension": {
           "type": "string"
         },
         "md5": {
@@ -27,20 +53,133 @@
         "sha256": {
           "type": "string"
         },
+        "sha384": {
+          "type": "string"
+        },
         "sha512": {
+          "type": "string"
+        },
+        "sha3_256": {
+          "type": "string"
+        },
+        "sha3_384": {
+          "type": "string"
+        },
+        "sha3_512": {
+          "type": "string"
+        },
+        "blake2b_256": {
+          "type": "string"
+        },
+        "blake2b_384": {
+          "type": "string"
+        },
+        "blake2b_512": {
+          "type": "string"
+        },
+        "blake3": {
+          "type": "string"
+        },
+        "cpe": {
           "type": "string"
         },
         "purl": {
           "type": "string"
+        },
+        "swidTagId": {
+          "type": "string"
+        },
+        "isInternal": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "copyright": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string"
+        },
+        "resolvedLicense": {
+          "$ref": "#/$defs/License"
+        },
+        "directDependencies": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
         }
-      }
+      },
+      "type": "object"
     },
-    "project": {
-      "type": "object",
+    "Finding": {
+      "properties": {
+        "component": {
+          "$ref": "#/$defs/Component"
+        },
+        "project": {
+          "$ref": "#/$defs/Project"
+        },
+        "vulnerability": {
+          "$ref": "#/$defs/Vulnerability"
+        }
+      },
+      "type": "object"
+    },
+    "License": {
       "properties": {
         "uuid": {
           "type": "string",
           "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "template": {
+          "type": "string"
+        },
+        "header": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        },
+        "licenseId": {
+          "type": "string"
+        },
+        "isOsiApproved": {
+          "type": "boolean"
+        },
+        "isFsfLibre": {
+          "type": "boolean"
+        },
+        "isDeprecatedLicenseId": {
+          "type": "boolean"
+        },
+        "seeAlso": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Project": {
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "author": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
         },
         "group": {
           "type": "string"
@@ -48,16 +187,74 @@
         "name": {
           "type": "string"
         },
+        "description": {
+          "type": "string"
+        },
         "version": {
+          "type": "string"
+        },
+        "classifier": {
+          "type": "string"
+        },
+        "cpe": {
+          "type": "string"
+        },
+        "purl": {
+          "type": "string"
+        },
+        "swidTagId": {
+          "type": "string"
+        },
+        "directDependencies": {
+          "type": "string"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/ProjectProperty"
+          },
+          "type": "array"
+        },
+        "tags": {
+          "items": {
+            "$ref": "#/$defs/Tag"
+          },
+          "type": "array"
+        },
+        "active": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "ProjectProperty": {
+      "properties": {
+        "groupName": {
+          "type": "string"
+        },
+        "propertyName": {
+          "type": "string"
+        },
+        "propertyValue": {
+          "type": "string"
+        },
+        "propertyType": {
           "type": "string"
         },
         "description": {
           "type": "string"
         }
-      }
+      },
+      "type": "object"
     },
-    "vulnerability": {
-      "type": "object",
+    "Tag": {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Vulnerability": {
       "properties": {
         "uuid": {
           "type": "string",
@@ -72,7 +269,7 @@
         "title": {
           "type": "string"
         },
-        "subtitle": {
+        "subTitle": {
           "type": "string"
         },
         "description": {
@@ -81,38 +278,65 @@
         "recommendation": {
           "type": "string"
         },
-        "cvssv2": {
+        "references": {
           "type": "string"
         },
-        "cvssv3": {
+        "credits": {
+          "type": "string"
+        },
+        "created": {
+          "type": "string"
+        },
+        "published": {
+          "type": "string"
+        },
+        "updated": {
+          "type": "string"
+        },
+        "cwe": {
+          "$ref": "#/$defs/CWE"
+        },
+        "cwes": {
+          "items": {
+            "$ref": "#/$defs/CWE"
+          },
+          "type": "array"
+        },
+        "cvssV2BaseScore": {
+          "type": "number"
+        },
+        "cvssV2ImpactSubScore": {
+          "type": "number"
+        },
+        "cvssV2ExploitabilitySubScore": {
+          "type": "number"
+        },
+        "cvssV2Vector": {
+          "type": "string"
+        },
+        "cvssV3BaseScore": {
+          "type": "number"
+        },
+        "cvssV3ImpactSubScore": {
+          "type": "number"
+        },
+        "cvssV3ExploitabilitySubScore": {
+          "type": "number"
+        },
+        "cvssV3Vector": {
           "type": "string"
         },
         "severity": {
           "type": "string"
         },
-        "cwe": {
-          "$ref": "#/definitions/cwe"
+        "vulnerableVersions": {
+          "type": "string"
         },
-        "cwes": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/cwe"
-          }
-        }
-      }
-    }
-  },
-  "definitions": {
-    "cwe": {
-      "type": "object",
-      "properties": {
-        "cweId": {
-          "type": "integer"
-        },
-        "name": {
+        "patchedVersions": {
           "type": "string"
         }
-      }
+      },
+      "type": "object"
     }
   }
 }
