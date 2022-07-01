@@ -1,9 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/nscuro/dtapac/internal/audit/violation",
-  "$ref": "#/$defs/Violation",
-  "$defs": {
-    "Component": {
+  "properties": {
+    "component": {
       "properties": {
         "uuid": {
           "type": "string",
@@ -91,7 +90,46 @@
           "type": "string"
         },
         "resolvedLicense": {
-          "$ref": "#/$defs/License"
+          "properties": {
+            "uuid": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "template": {
+              "type": "string"
+            },
+            "header": {
+              "type": "string"
+            },
+            "comment": {
+              "type": "string"
+            },
+            "licenseId": {
+              "type": "string"
+            },
+            "isOsiApproved": {
+              "type": "boolean"
+            },
+            "isFsfLibre": {
+              "type": "boolean"
+            },
+            "isDeprecatedLicenseId": {
+              "type": "boolean"
+            },
+            "seeAlso": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
         },
         "directDependencies": {
           "type": "string"
@@ -102,118 +140,7 @@
       },
       "type": "object"
     },
-    "License": {
-      "properties": {
-        "uuid": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "name": {
-          "type": "string"
-        },
-        "text": {
-          "type": "string"
-        },
-        "template": {
-          "type": "string"
-        },
-        "header": {
-          "type": "string"
-        },
-        "comment": {
-          "type": "string"
-        },
-        "licenseId": {
-          "type": "string"
-        },
-        "isOsiApproved": {
-          "type": "boolean"
-        },
-        "isFsfLibre": {
-          "type": "boolean"
-        },
-        "isDeprecatedLicenseId": {
-          "type": "boolean"
-        },
-        "seeAlso": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      },
-      "type": "object"
-    },
-    "Policy": {
-      "properties": {
-        "UUID": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "name": {
-          "type": "string"
-        },
-        "operator": {
-          "type": "string"
-        },
-        "violationState": {
-          "type": "string"
-        },
-        "policyConditions": {
-          "items": {
-            "$ref": "#/$defs/PolicyCondition"
-          },
-          "type": "array"
-        }
-      },
-      "type": "object"
-    },
-    "PolicyCondition": {
-      "properties": {
-        "UUID": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "policy": {
-          "$ref": "#/$defs/Policy"
-        },
-        "operator": {
-          "type": "string"
-        },
-        "subject": {
-          "type": "string"
-        },
-        "value": {
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "PolicyViolation": {
-      "properties": {
-        "UUID": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "component": {
-          "$ref": "#/$defs/Component"
-        },
-        "project": {
-          "$ref": "#/$defs/Project"
-        },
-        "policyCondition": {
-          "$ref": "#/$defs/PolicyCondition"
-        },
-        "type": {
-          "type": "string"
-        },
-        "text": {
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "Project": {
+    "project": {
       "properties": {
         "uuid": {
           "type": "string",
@@ -254,13 +181,35 @@
         },
         "properties": {
           "items": {
-            "$ref": "#/$defs/ProjectProperty"
+            "properties": {
+              "groupName": {
+                "type": "string"
+              },
+              "propertyName": {
+                "type": "string"
+              },
+              "propertyValue": {
+                "type": "string"
+              },
+              "propertyType": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              }
+            },
+            "type": "object"
           },
           "type": "array"
         },
         "tags": {
           "items": {
-            "$ref": "#/$defs/Tag"
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "type": "object"
           },
           "type": "array"
         },
@@ -270,47 +219,274 @@
       },
       "type": "object"
     },
-    "ProjectProperty": {
+    "policyViolation": {
       "properties": {
-        "groupName": {
-          "type": "string"
+        "UUID": {
+          "type": "string",
+          "format": "uuid"
         },
-        "propertyName": {
-          "type": "string"
-        },
-        "propertyValue": {
-          "type": "string"
-        },
-        "propertyType": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "Tag": {
-      "properties": {
-        "name": {
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "Violation": {
-      "properties": {
         "component": {
-          "$ref": "#/$defs/Component"
+          "properties": {
+            "uuid": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "author": {
+              "type": "string"
+            },
+            "publisher": {
+              "type": "string"
+            },
+            "group": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "classifier": {
+              "type": "string"
+            },
+            "filename": {
+              "type": "string"
+            },
+            "extension": {
+              "type": "string"
+            },
+            "md5": {
+              "type": "string"
+            },
+            "sha1": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": "string"
+            },
+            "sha384": {
+              "type": "string"
+            },
+            "sha512": {
+              "type": "string"
+            },
+            "sha3_256": {
+              "type": "string"
+            },
+            "sha3_384": {
+              "type": "string"
+            },
+            "sha3_512": {
+              "type": "string"
+            },
+            "blake2b_256": {
+              "type": "string"
+            },
+            "blake2b_384": {
+              "type": "string"
+            },
+            "blake2b_512": {
+              "type": "string"
+            },
+            "blake3": {
+              "type": "string"
+            },
+            "cpe": {
+              "type": "string"
+            },
+            "purl": {
+              "type": "string"
+            },
+            "swidTagId": {
+              "type": "string"
+            },
+            "isInternal": {
+              "type": "boolean"
+            },
+            "description": {
+              "type": "string"
+            },
+            "copyright": {
+              "type": "string"
+            },
+            "license": {
+              "type": "string"
+            },
+            "resolvedLicense": {
+              "properties": {
+                "uuid": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "template": {
+                  "type": "string"
+                },
+                "header": {
+                  "type": "string"
+                },
+                "comment": {
+                  "type": "string"
+                },
+                "licenseId": {
+                  "type": "string"
+                },
+                "isOsiApproved": {
+                  "type": "boolean"
+                },
+                "isFsfLibre": {
+                  "type": "boolean"
+                },
+                "isDeprecatedLicenseId": {
+                  "type": "boolean"
+                },
+                "seeAlso": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "directDependencies": {
+              "type": "string"
+            },
+            "notes": {
+              "type": "string"
+            }
+          },
+          "type": "object"
         },
         "project": {
-          "$ref": "#/$defs/Project"
+          "properties": {
+            "uuid": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "author": {
+              "type": "string"
+            },
+            "publisher": {
+              "type": "string"
+            },
+            "group": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "classifier": {
+              "type": "string"
+            },
+            "cpe": {
+              "type": "string"
+            },
+            "purl": {
+              "type": "string"
+            },
+            "swidTagId": {
+              "type": "string"
+            },
+            "directDependencies": {
+              "type": "string"
+            },
+            "properties": {
+              "items": {
+                "properties": {
+                  "groupName": {
+                    "type": "string"
+                  },
+                  "propertyName": {
+                    "type": "string"
+                  },
+                  "propertyValue": {
+                    "type": "string"
+                  },
+                  "propertyType": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "tags": {
+              "items": {
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "active": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
         },
-        "policyViolation": {
-          "$ref": "#/$defs/PolicyViolation"
+        "policyCondition": {
+          "properties": {
+            "UUID": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "policy": {
+              "properties": {
+                "uuid": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "operator": {
+                  "type": "string"
+                },
+                "violationState": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "operator": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "type": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
         }
       },
       "type": "object"
     }
-  }
+  },
+  "type": "object"
 }

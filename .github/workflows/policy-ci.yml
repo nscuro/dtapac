@@ -15,11 +15,6 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        policy:
-        - finding
-        - violation
     steps:
     - name: Setup OPA
       uses: open-policy-agent/setup-opa@faa87c85bf45c58af696e3ef83f8e77f7c40396b # tag=v1.0.0
@@ -29,15 +24,12 @@ jobs:
       uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # tag=v3
     - name: Check
       run: >
-        opa check ./examples/policies/${{ matrix.policy }}.rego
-        --schema ./examples/schemas/${{ matrix.policy }}.schema.json
+        opa check ./examples/policies
+        --schema ./examples/schemas
         --strict
         --format pretty
     - name: Test
-      run: >
-        opa test -v
-        ./examples/policies/${{ matrix.policy }}.rego
-        ./examples/policies/${{ matrix.policy }}_test.rego
+      run: opa test -v ./examples/policies
 
   package:
     name: Package

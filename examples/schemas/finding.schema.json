@@ -1,20 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/nscuro/dtapac/internal/audit/finding",
-  "$ref": "#/$defs/Finding",
-  "$defs": {
-    "CWE": {
-      "properties": {
-        "cweId": {
-          "type": "integer"
-        },
-        "name": {
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "Component": {
+  "properties": {
+    "component": {
       "properties": {
         "uuid": {
           "type": "string",
@@ -102,7 +90,46 @@
           "type": "string"
         },
         "resolvedLicense": {
-          "$ref": "#/$defs/License"
+          "properties": {
+            "uuid": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "template": {
+              "type": "string"
+            },
+            "header": {
+              "type": "string"
+            },
+            "comment": {
+              "type": "string"
+            },
+            "licenseId": {
+              "type": "string"
+            },
+            "isOsiApproved": {
+              "type": "boolean"
+            },
+            "isFsfLibre": {
+              "type": "boolean"
+            },
+            "isDeprecatedLicenseId": {
+              "type": "boolean"
+            },
+            "seeAlso": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
         },
         "directDependencies": {
           "type": "string"
@@ -113,63 +140,7 @@
       },
       "type": "object"
     },
-    "Finding": {
-      "properties": {
-        "component": {
-          "$ref": "#/$defs/Component"
-        },
-        "project": {
-          "$ref": "#/$defs/Project"
-        },
-        "vulnerability": {
-          "$ref": "#/$defs/Vulnerability"
-        }
-      },
-      "type": "object"
-    },
-    "License": {
-      "properties": {
-        "uuid": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "name": {
-          "type": "string"
-        },
-        "text": {
-          "type": "string"
-        },
-        "template": {
-          "type": "string"
-        },
-        "header": {
-          "type": "string"
-        },
-        "comment": {
-          "type": "string"
-        },
-        "licenseId": {
-          "type": "string"
-        },
-        "isOsiApproved": {
-          "type": "boolean"
-        },
-        "isFsfLibre": {
-          "type": "boolean"
-        },
-        "isDeprecatedLicenseId": {
-          "type": "boolean"
-        },
-        "seeAlso": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      },
-      "type": "object"
-    },
-    "Project": {
+    "project": {
       "properties": {
         "uuid": {
           "type": "string",
@@ -210,13 +181,35 @@
         },
         "properties": {
           "items": {
-            "$ref": "#/$defs/ProjectProperty"
+            "properties": {
+              "groupName": {
+                "type": "string"
+              },
+              "propertyName": {
+                "type": "string"
+              },
+              "propertyValue": {
+                "type": "string"
+              },
+              "propertyType": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              }
+            },
+            "type": "object"
           },
           "type": "array"
         },
         "tags": {
           "items": {
-            "$ref": "#/$defs/Tag"
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "type": "object"
           },
           "type": "array"
         },
@@ -226,35 +219,7 @@
       },
       "type": "object"
     },
-    "ProjectProperty": {
-      "properties": {
-        "groupName": {
-          "type": "string"
-        },
-        "propertyName": {
-          "type": "string"
-        },
-        "propertyValue": {
-          "type": "string"
-        },
-        "propertyType": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "Tag": {
-      "properties": {
-        "name": {
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "Vulnerability": {
+    "vulnerability": {
       "properties": {
         "uuid": {
           "type": "string",
@@ -294,11 +259,27 @@
           "type": "string"
         },
         "cwe": {
-          "$ref": "#/$defs/CWE"
+          "properties": {
+            "cweId": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "type": "object"
         },
         "cwes": {
           "items": {
-            "$ref": "#/$defs/CWE"
+            "properties": {
+              "cweId": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "type": "object"
           },
           "type": "array"
         },
@@ -338,5 +319,6 @@
       },
       "type": "object"
     }
-  }
+  },
+  "type": "object"
 }
