@@ -5,7 +5,8 @@ go 1.18
 require (
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/google/uuid v1.3.0
-	github.com/invopop/jsonschema v0.4.0
+	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0
+	github.com/invopop/jsonschema v0.5.0
 	github.com/nscuro/dtrack-client v0.6.0
 	github.com/peterbourgon/ff/v3 v3.1.2
 	github.com/prometheus/client_golang v1.12.2
@@ -32,7 +33,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
