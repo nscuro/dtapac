@@ -52,8 +52,10 @@ func NewServer(addr string, dtClient *dtrack.Client, auditor audit.Auditor, logg
 
 	return &Server{
 		httpServer: &http.Server{
-			Addr:    addr,
-			Handler: router,
+			Addr:              addr,
+			Handler:           router,
+			ReadHeaderTimeout: 5 * time.Second,
+			ReadTimeout:       10 * time.Second,
 		},
 		router:          router,
 		auditResultChan: auditChan,
