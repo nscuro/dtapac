@@ -8,7 +8,7 @@ require (
 	github.com/iancoleman/orderedmap v0.2.0
 	github.com/invopop/jsonschema v0.6.0
 	github.com/nscuro/dtrack-client v0.6.0
-	github.com/peterbourgon/ff/v3 v3.1.2
+	github.com/peterbourgon/ff/v3 v3.3.0
 	github.com/prometheus/client_golang v1.12.2
 	github.com/rs/zerolog v1.27.0
 	github.com/stretchr/testify v1.8.0
