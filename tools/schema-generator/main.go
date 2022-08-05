@@ -1,17 +1,22 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/iancoleman/orderedmap"
-	"github.com/invopop/jsonschema"
-	"github.com/nscuro/dtapac/internal/audit"
-	"github.com/nscuro/dtrack-client"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"reflect"
+
+	"github.com/google/uuid"
+	"github.com/iancoleman/orderedmap"
+	"github.com/invopop/jsonschema"
+	"github.com/nscuro/dtrack-client"
+
+	"github.com/nscuro/dtapac/internal/audit"
 )
 
 func main() {
@@ -36,7 +41,7 @@ func main() {
 			//  - https://pkg.go.dev/github.com/nscuro/dtrack-client#PolicyViolation
 			//	- https://pkg.go.dev/github.com/nscuro/dtrack-client#PolicyCondition
 			//  - https://pkg.go.dev/github.com/nscuro/dtrack-client#Policy
-			if r == reflect.TypeOf(&dtrack.Policy{}) {
+			if r == reflect.TypeOf(dtrack.Policy{}) || r == reflect.TypeOf(&dtrack.Policy{}) {
 				properties := orderedmap.New()
 				properties.Set("uuid", &jsonschema.Schema{
 					Type:   "string",
@@ -61,11 +66,13 @@ func main() {
 		},
 	}
 
+	log.Printf("generating finding input schema")
 	err := writeSchema(reflector, &audit.Finding{}, filepath.Join(outputDir, "finding.schema.json"))
 	if err != nil {
 		log.Fatalf("failed to generate schema file for finding: %v", err)
 	}
 
+	log.Printf("generating violation input schema")
 	err = writeSchema(reflector, &audit.Violation{}, filepath.Join(outputDir, "violation.schema.json"))
 	if err != nil {
 		log.Fatalf("failed to generate schema file for violation: %v", err)
@@ -78,5 +85,29 @@ func writeSchema(reflector *jsonschema.Reflector, input any, filePath string) er
 		return fmt.Errorf("failed to generate schema: %w", err)
 	}
 
-	return os.WriteFile(filePath, schema, 0600)
+	// The output is not formatted by jsonschema, so we're re-encoding it
+	// with proper indentation.
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to create file %s: %w", filePath, err)
+	}
+	defer file.Close()
+
+	var decodedSchema map[string]any
+	err = json.NewDecoder(bytes.NewReader(schema)).Decode(&decodedSchema)
+	if err != nil {
+		return fmt.Errorf("failed to decode json schema: %w", err)
+	}
+
+	// Reset file pointer, so we can write to it without re-opening
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("failed to reset file pointer: %w", err)
+	}
+
+	enc := json.NewEncoder(file)
+	enc.SetIndent("", "  ")
+
+	return enc.Encode(decodedSchema)
 }
