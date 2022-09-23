@@ -30,7 +30,7 @@ jobs:
       with:
         version: v1
     - name: Set up cosign
-      uses: sigstore/cosign-installer@f3c664df7af409cb4873aa5068053ba9d61a57b6 # tag=v2.6.0
+      uses: sigstore/cosign-installer@ced07f21fb1da67979f539bbc6304c16c0677e76 # tag=v2.7.0
     - name: Set up QEMU
       uses: docker/setup-qemu-action@8b122486cedac8393e77aa9734c3528886e4a1a8 # tag=v2
     - name: Docker login
