@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Setup OPA
-      uses: open-policy-agent/setup-opa@faa87c85bf45c58af696e3ef83f8e77f7c40396b # tag=v1.0.0
+      uses: open-policy-agent/setup-opa@024cb0fcd96c21f46a214067e7e842a7b02e3962 # tag=v2.0.0
       with:
         version: latest
     - name: Checkout Repository
@@ -38,7 +38,7 @@ jobs:
     - test
     steps:
     - name: Setup OPA
-      uses: open-policy-agent/setup-opa@faa87c85bf45c58af696e3ef83f8e77f7c40396b # tag=v1.0.0
+      uses: open-policy-agent/setup-opa@024cb0fcd96c21f46a214067e7e842a7b02e3962 # tag=v2.0.0
       with:
         version: latest
     - name: Checkout Repository
