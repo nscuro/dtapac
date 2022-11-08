@@ -6,7 +6,7 @@ require (
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/google/uuid v1.3.0
 	github.com/iancoleman/orderedmap v0.2.0
-	github.com/invopop/jsonschema v0.6.0
+	github.com/invopop/jsonschema v0.7.0
 	github.com/nscuro/dtrack-client v0.6.0
 	github.com/peterbourgon/ff/v3 v3.3.0
 	github.com/prometheus/client_golang v1.14.0
