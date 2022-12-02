@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/iancoleman/orderedmap v0.2.0
 	github.com/invopop/jsonschema v0.7.0
-	github.com/nscuro/dtrack-client v0.6.0
+	github.com/nscuro/dtrack-client v0.7.0
 	github.com/peterbourgon/ff/v3 v3.3.0
 	github.com/prometheus/client_golang v1.14.0
 	github.com/rs/zerolog v1.28.0

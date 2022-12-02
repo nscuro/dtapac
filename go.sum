@@ -697,6 +697,8 @@ github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWb
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nscuro/dtrack-client v0.6.0 h1:lOZv1dHvQHC8s3LvfBd/4kGo3HpVMER9US1WLNAIT14=
 github.com/nscuro/dtrack-client v0.6.0/go.mod h1:wbtzmJwlXNEuY/yye3xViXoaKp5+fgzB07/TJI8rZCs=
+github.com/nscuro/dtrack-client v0.7.0 h1:5KIChUJ0lBtoUvJF2jTeJsyIkOPcEaBPMn5vN37Hbn0=
+github.com/nscuro/dtrack-client v0.7.0/go.mod h1:q7wTyvuR3+psSqvul6KDrHPTBOO+UOjhpLmVg/3mtw8=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=
 github.com/oklog/ulid v1.3.1/go.mod h1:CirwcVhetQ6Lv90oh/F+FBtV6XMibvdAFo93nm5qn4U=
