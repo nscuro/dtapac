@@ -1,7 +1,7 @@
 package audit
 
 import (
-	"github.com/nscuro/dtrack-client"
+	"github.com/DependencyTrack/client-go"
 	"github.com/rs/zerolog"
 )
 

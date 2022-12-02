@@ -221,9 +221,9 @@ For findings, the `input` document is structured as follows:
 
 The available properties of those fields are documented here:
 
-* [`component`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Component)
-* [`project`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Project)
-* [`vulnerability`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Vulnerability)
+* [`component`](https://pkg.go.dev/github.com/DependencyTrack/client-go#Component)
+* [`project`](https://pkg.go.dev/github.com/DependencyTrack/client-go#Project)
+* [`vulnerability`](https://pkg.go.dev/github.com/DependencyTrack/client-go#Vulnerability)
 
 Obviously not all properties are always available.
 
@@ -278,9 +278,9 @@ For policy violations, the `input` document is structured as follows:
 
 The available properties of those fields are documented here:
 
-* [`component`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Component)
-* [`project`](https://pkg.go.dev/github.com/nscuro/dtrack-client#Project)
-* [`policyViolation`](https://pkg.go.dev/github.com/nscuro/dtrack-client#PolicyViolation)
+* [`component`](https://pkg.go.dev/github.com/DependencyTrack/client-go#Component)
+* [`project`](https://pkg.go.dev/github.com/DependencyTrack/client-go#Project)
+* [`policyViolation`](https://pkg.go.dev/github.com/DependencyTrack/client-go#PolicyViolation)
 
 ##### Example
 

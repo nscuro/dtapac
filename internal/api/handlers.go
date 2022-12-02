@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/nscuro/dtrack-client"
-	"github.com/nscuro/dtrack-client/notification"
+	"github.com/DependencyTrack/client-go"
+	"github.com/DependencyTrack/client-go/notification"
 	"github.com/rs/zerolog"
 
 	"github.com/nscuro/dtapac/internal/audit"

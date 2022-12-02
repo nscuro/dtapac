@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/DependencyTrack/client-go"
 	"github.com/google/uuid"
-	"github.com/nscuro/dtrack-client"
 	"github.com/rs/zerolog"
 )
 
@@ -206,7 +206,7 @@ func (a *Applier) applyViolationAnalysis(ctx context.Context, analysisReq dtrack
 // analysisService is an interface for parts of the Dependency-Track
 // analysis API to make mocking in tests easier.
 //
-// This interface is implemented by https://pkg.go.dev/github.com/nscuro/dtrack-client#AnalysisService
+// This interface is implemented by https://pkg.go.dev/github.com/DependencyTrack/client-go#AnalysisService
 type analysisService interface {
 	Get(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (dtrack.Analysis, error)
 	Create(context.Context, dtrack.AnalysisRequest) (dtrack.Analysis, error)
@@ -215,7 +215,7 @@ type analysisService interface {
 // violationAnalysisService is an interface for parts of the Dependency-Track
 // violation analysis API to make mocking in tests easier.
 //
-// This interface is implemented by https://pkg.go.dev/github.com/nscuro/dtrack-client#ViolationAnalysisService
+// This interface is implemented by https://pkg.go.dev/github.com/DependencyTrack/client-go#ViolationAnalysisService
 type violationAnalysisService interface {
 	Get(context.Context, uuid.UUID, uuid.UUID) (dtrack.ViolationAnalysis, error)
 	Update(context.Context, dtrack.ViolationAnalysisRequest) (dtrack.ViolationAnalysis, error)

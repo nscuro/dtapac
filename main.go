@@ -11,7 +11,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/nscuro/dtrack-client"
+	"github.com/DependencyTrack/client-go"
 	"github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/peterbourgon/ff/v3/ffyaml"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nscuro/dtrack-client"
+	"github.com/DependencyTrack/client-go"
 	"github.com/rs/zerolog"
 
 	"github.com/nscuro/dtapac/internal/audit"

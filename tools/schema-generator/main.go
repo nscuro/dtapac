@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"reflect"
 
+	"github.com/DependencyTrack/client-go"
 	"github.com/google/uuid"
 	"github.com/iancoleman/orderedmap"
 	"github.com/invopop/jsonschema"
-	"github.com/nscuro/dtrack-client"
 
 	"github.com/nscuro/dtapac/internal/audit"
 )
@@ -38,9 +38,9 @@ func main() {
 
 			// Avoid endless recursion: PolicyViolation -> PolicyCondition -> Policy -> PolicyConditions -> Policy...
 			// See
-			//  - https://pkg.go.dev/github.com/nscuro/dtrack-client#PolicyViolation
-			//	- https://pkg.go.dev/github.com/nscuro/dtrack-client#PolicyCondition
-			//  - https://pkg.go.dev/github.com/nscuro/dtrack-client#Policy
+			//  - https://pkg.go.dev/github.com/DependencyTrack/client-go#PolicyViolation
+			//	- https://pkg.go.dev/github.com/DependencyTrack/client-go#PolicyCondition
+			//  - https://pkg.go.dev/github.com/DependencyTrack/client-go#Policy
 			if r == reflect.TypeOf(dtrack.Policy{}) || r == reflect.TypeOf(&dtrack.Policy{}) {
 				properties := orderedmap.New()
 				properties.Set("uuid", &jsonschema.Schema{
