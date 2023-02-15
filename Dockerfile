@@ -1,4 +1,4 @@
-FROM golang:1.20.0-alpine3.16@sha256:846aec1428bbc484681625bc066c057f2fc5805eb9ea67bd47e4f86e4ca35d83 as build
+FROM golang:1.20.1-alpine3.16@sha256:9266e89c290fe79635bda268c5edf3334ff76950db2416e8d57fc9ecc869f859 as build
 RUN apk add --no-cache ca-certificates git make
 WORKDIR /usr/src/app
 COPY ./go.mod ./go.sum ./
