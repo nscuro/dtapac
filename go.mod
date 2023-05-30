@@ -11,7 +11,7 @@ require (
 	github.com/peterbourgon/ff/v3 v3.3.0
 	github.com/prometheus/client_golang v1.15.1
 	github.com/rs/zerolog v1.29.1
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.19.0
 	golang.org/x/sync v0.2.0
 )
