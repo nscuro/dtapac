@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/DependencyTrack/client-go"
+	dtrack "github.com/DependencyTrack/client-go"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
@@ -60,12 +60,22 @@ func (a *Applier) SetDryRun(dryRun bool) {
 	a.dryRun = dryRun
 }
 
+func is404orEOF(err error) bool {
+	if errors.Is(err, io.EOF) {
+		return true
+	}
+	if status, ok := err.(*dtrack.APIError); ok && status.StatusCode == 404 {
+		return true
+	}
+	return false
+}
+
 // applyAnalysis applies an analysis.
 func (a *Applier) applyAnalysis(ctx context.Context, analysisReq dtrack.AnalysisRequest) error {
 	var existingAnalysis *dtrack.Analysis
 	if analysis, err := a.analysisSvc.Get(ctx, analysisReq.Component, analysisReq.Project, analysisReq.Vulnerability); err == nil {
 		existingAnalysis = &analysis
-	} else if !errors.Is(err, io.EOF) {
+	} else if !is404orEOF(err) {
 		// Dependency-Track does not respond with a 404 when no analysis was found,
 		// but with a 200 and an empty response body instead.
 		totalApplied.WithLabelValues(metricsLabelStatusFailed, metricsLabelTypeFinding).Inc()
