@@ -92,62 +92,10 @@ func (c Client) Decision(ctx context.Context, decisionPath string, input any, re
 	return
 }
 
-// Health checks whether OPA is operational.
-// See: https://www.openpolicyagent.org/docs/latest/rest-api/#health-api
-func (c Client) Health(ctx context.Context) (err error) {
-	healthURL, err := c.baseURL.Parse(path.Join("/health"))
-	if err != nil {
-		err = fmt.Errorf("failed to parse request url: %w", err)
-		return
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL.String(), nil)
-	if err != nil {
-		err = fmt.Errorf("failed to create request: %w", err)
-		return
-	}
-
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "dtapac")
-
-	res, err := c.httpClient.Do(req)
-	if err != nil {
-		err = fmt.Errorf("failed to send request: %w", err)
-		return
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode == http.StatusOK {
-		return
-	} else if res.StatusCode == http.StatusInternalServerError {
-		var healthRes healthResponse
-		err = json.NewDecoder(res.Body).Decode(&healthRes)
-		if err != nil {
-			err = fmt.Errorf("failed to decode response: %w", err)
-			return
-		}
-
-		if healthRes.Error == "" {
-			err = fmt.Errorf("response status is %d, but no error field was returned", http.StatusInternalServerError)
-			return
-		}
-
-		err = errors.New(healthRes.Error)
-		return
-	}
-
-	err = fmt.Errorf("unexpected response code: %d", res.StatusCode)
-	return
-}
-
 type decisionRequest struct {
 	Input any `json:"input"`
 }
 
 type decisionResponse struct {
 	Result *json.RawMessage `json:"result"`
-}
-
-type healthResponse struct {
-	Error string `json:"error"`
 }

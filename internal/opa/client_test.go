@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"net/http"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 func TestClient_Decision(t *testing.T) {
@@ -44,16 +45,6 @@ func TestClient_Decision(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, ErrNoDecisionResult, err)
 	})
-}
-
-func TestClient_Health(t *testing.T) {
-	opaURL := setupOPA(t)
-
-	client, err := NewClient(opaURL)
-	require.NoError(t, err)
-
-	err = client.Health(context.TODO())
-	require.NoError(t, err)
 }
 
 func setupOPA(t *testing.T) string {
