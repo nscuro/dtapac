@@ -49,7 +49,7 @@ func TestClient_Decision(t *testing.T) {
 
 func setupOPA(t *testing.T) string {
 	req := testcontainers.ContainerRequest{
-		Image:        "openpolicyagent/opa:0.40.0-rootless",
+		Image:        "openpolicyagent/opa:0.56.0-rootless",
 		Cmd:          []string{"run", "--server"},
 		ExposedPorts: []string{"8181/tcp"},
 		WaitingFor:   wait.ForLog("Initializing server"),

@@ -2,7 +2,7 @@ version: "3"
 
 services:
   dtrack:
-    image: dependencytrack/bundled:4.5.0@sha256:eb8d446d41a03bae46aa9a68692de08ba62946994563287c100d245471a09812
+    image: dependencytrack/bundled:4.8.2
     ports:
     - "127.0.0.1:8080:8080"
     restart: unless-stopped
@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
 
   opa:
-    image: openpolicyagent/opa:0.41.0-rootless@sha256:530cbe6d3e3f99966aba8563e5c4a63e4f89ff70ece959b57fd617fa0dca70b6
+    image: openpolicyagent/opa:0.56.0-rootless
     command:
     - run
     - --server
@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 
   nginx:
-    image: nginx:1.22.0-alpine@sha256:f335d7436887b39393409261603fb248e0c385ec18997d866dd44f7e9b621096
+    image: nginx:1.25.2-alpine
     volumes:
     - "../../bundles:/usr/share/nginx/html/bundles:ro"
     restart: unless-stopped
