@@ -21,3 +21,6 @@
 
 # Env files
 .env
+
+# IntelliJ / GoLand
+.idea/
