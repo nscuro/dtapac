@@ -12,6 +12,14 @@ type Finding struct {
 	Vulnerability dtrack.Vulnerability `json:"vulnerability"`
 }
 
+func NewFinding(fc dtrack.FindingComponent, p dtrack.Project, fv dtrack.FindingVulnerability) Finding {
+	return Finding{
+		Component:     mapComponent(fc),
+		Project:       p,
+		Vulnerability: mapVulnerability(fv),
+	}
+}
+
 // MarshalZerologObject implement the zerolog.LogObjectMarshaler interface.
 func (f Finding) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("component", f.Component.UUID.String()).
@@ -65,4 +73,36 @@ func (va ViolationAnalysis) MarshalZerologObject(e *zerolog.Event) {
 	e.Str("state", string(va.State)).
 		Str("comment", va.Comment).
 		Interface("suppress", va.Suppress)
+}
+
+func mapComponent(fc dtrack.FindingComponent) dtrack.Component {
+	return dtrack.Component{
+		UUID:    fc.UUID,
+		Group:   fc.Group,
+		Name:    fc.Name,
+		Version: fc.Version,
+		CPE:     fc.CPE,
+		PURL:    fc.PURL,
+	}
+}
+
+func mapVulnerability(fv dtrack.FindingVulnerability) dtrack.Vulnerability {
+	return dtrack.Vulnerability{
+		UUID:                        fv.UUID,
+		VulnID:                      fv.VulnID,
+		Source:                      fv.Source,
+		Title:                       fv.Title,
+		SubTitle:                    fv.SubTitle,
+		Description:                 fv.Description,
+		Recommendation:              fv.Recommendation,
+		CVSSV2BaseScore:             fv.CVSSV2BaseScore,
+		CVSSV3BaseScore:             fv.CVSSV3BaseScore,
+		Severity:                    fv.Severity,
+		OWASPRRBusinessImpactScore:  fv.OWASPRRBusinessImpactScore,
+		OWASPRRLikelihoodScore:      fv.OWASPRRLikelihoodScore,
+		OWASPRRTechnicalImpactScore: fv.OWASPRRTechnicalImpactScore,
+		EPSSScore:                   fv.EPSSScore,
+		EPSSPercentile:              fv.EPSSPercentile,
+		CWEs:                        fv.CWEs,
+	}
 }

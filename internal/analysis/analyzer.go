@@ -97,12 +97,7 @@ func (pa PortfolioAnalyzer) analyzeFindings(ctx context.Context, project dtrack.
 	}
 
 	for i := range findings {
-		finding := audit.Finding{
-			Component:     findings[i].Component,
-			Project:       project,
-			Vulnerability: findings[i].Vulnerability,
-		}
-
+		finding := audit.NewFinding(findings[i].Component, project, findings[i].Vulnerability)
 		analysisReq, auditErr := pa.auditor.AuditFinding(context.Background(), finding)
 		if auditErr == nil && analysisReq != (dtrack.AnalysisRequest{}) {
 			pa.auditResultChan <- analysisReq

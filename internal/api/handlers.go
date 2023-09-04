@@ -146,13 +146,13 @@ func mapPolicyViolation(input notification.PolicyViolation) dtrack.PolicyViolati
 		Type: input.Type,
 		PolicyCondition: &dtrack.PolicyCondition{
 			UUID:     input.PolicyCondition.UUID,
-			Subject:  input.PolicyCondition.Subject,
-			Operator: input.PolicyCondition.Operator,
+			Subject:  dtrack.PolicyConditionSubject(input.PolicyCondition.Subject),
+			Operator: dtrack.PolicyConditionOperator(input.PolicyCondition.Operator),
 			Value:    input.PolicyCondition.Value,
 			Policy: &dtrack.Policy{
 				UUID:           input.PolicyCondition.Policy.UUID,
 				Name:           input.PolicyCondition.Policy.Name,
-				ViolationState: input.PolicyCondition.Policy.ViolationState,
+				ViolationState: dtrack.PolicyViolationState(input.PolicyCondition.Policy.ViolationState),
 			},
 		},
 	}
