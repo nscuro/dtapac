@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/DependencyTrack/client-go v0.13.0
 	github.com/go-chi/chi/v5 v5.0.11
-	github.com/google/uuid v1.5.0
+	github.com/google/uuid v1.6.0
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/invopop/jsonschema v0.8.0
 	github.com/peterbourgon/ff/v3 v3.4.0
