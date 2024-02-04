@@ -2,7 +2,7 @@ version: "3"
 
 services:
   dtrack:
-    image: dependencytrack/bundled:4.8.2
+    image: dependencytrack/bundled:4.10.1
     ports:
     - "127.0.0.1:8080:8080"
     restart: unless-stopped
@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
 
   opa:
-    image: openpolicyagent/opa:0.56.0-rootless
+    image: openpolicyagent/opa:0.61.0
     command:
     - run
     - --server
@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 
   nginx:
-    image: nginx:1.25.2-alpine
+    image: nginx:1.25.3-alpine
     volumes:
     - "../../bundles:/usr/share/nginx/html/bundles:ro"
     restart: unless-stopped
