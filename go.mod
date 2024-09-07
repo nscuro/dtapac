@@ -1,6 +1,6 @@
 module github.com/nscuro/dtapac
 
-go 1.21
+go 1.23.1
 
 require (
 	github.com/DependencyTrack/client-go v0.13.0
