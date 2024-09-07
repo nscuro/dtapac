@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -16,7 +17,7 @@ import (
 func TestClient_Decision(t *testing.T) {
 	opaURL := setupOPA(t)
 
-	client, err := NewClient(opaURL)
+	client, err := NewClient(opaURL, 5*time.Second)
 	require.NoError(t, err)
 
 	t.Run("Match", func(t *testing.T) {
@@ -49,7 +50,7 @@ func TestClient_Decision(t *testing.T) {
 
 func setupOPA(t *testing.T) string {
 	req := testcontainers.ContainerRequest{
-		Image:        "openpolicyagent/opa:0.61.0",
+		Image:        "openpolicyagent/opa:0.68.0",
 		Cmd:          []string{"run", "--server"},
 		ExposedPorts: []string{"8181/tcp"},
 		WaitingFor:   wait.ForLog("Initializing server"),
