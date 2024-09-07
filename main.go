@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/DependencyTrack/client-go"
 	"github.com/peterbourgon/ff/v3"
@@ -35,7 +36,9 @@ func main() {
 	fs.UintVar(&opts.port, "port", 8080, "Port to listen on")
 	fs.StringVar(&opts.dtURL, "dtrack-url", "", "Dependency-Track API server URL")
 	fs.StringVar(&opts.dtAPIKey, "dtrack-apikey", "", "Dependency-Track API key")
+	fs.DurationVar(&opts.dtTimeout, "dtrack-timeout", dtrack.DefaultTimeout, "Dependency-Track request timeout")
 	fs.StringVar(&opts.opaURL, "opa-url", "", "Open Policy Agent URL")
+	fs.DurationVar(&opts.opaTimeout, "opa-timeout", 5*time.Second, "OPA request timeout")
 	fs.StringVar(&opts.watchBundle, "watch-bundle", "", "OPA bundle to watch")
 	fs.StringVar(&opts.findingPolicyPath, "finding-policy-path", "", "Policy path for finding analysis")
 	fs.StringVar(&opts.violationPolicyPath, "violation-policy-path", "", "Policy path for violation analysis")
@@ -71,7 +74,9 @@ type options struct {
 	port                uint
 	dtURL               string
 	dtAPIKey            string
+	dtTimeout           time.Duration
 	opaURL              string
+	opaTimeout          time.Duration
 	watchBundle         string
 	findingPolicyPath   string
 	violationPolicyPath string
@@ -93,12 +98,12 @@ func exec(ctx context.Context, opts options) error {
 		logger.Error().Err(err).Msg("failed to parse log level")
 	}
 
-	dtClient, err := dtrack.NewClient(opts.dtURL, dtrack.WithAPIKey(opts.dtAPIKey))
+	dtClient, err := dtrack.NewClient(opts.dtURL, dtrack.WithAPIKey(opts.dtAPIKey), dtrack.WithTimeout(opts.dtTimeout))
 	if err != nil {
 		return fmt.Errorf("failed to setup dtrack client: %w", err)
 	}
 
-	opaClient, err := opa.NewClient(opts.opaURL)
+	opaClient, err := opa.NewClient(opts.opaURL, opts.opaTimeout)
 	if err != nil {
 		return fmt.Errorf("failed to setup opa client: %w", err)
 	}

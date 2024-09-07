@@ -21,7 +21,7 @@ type Client struct {
 	baseURL    *url.URL
 }
 
-func NewClient(baseURL string) (*Client, error) {
+func NewClient(baseURL string, timeout time.Duration) (*Client, error) {
 	bu, err := url.ParseRequestURI(baseURL)
 	if err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func NewClient(baseURL string) (*Client, error) {
 
 	return &Client{
 		httpClient: &http.Client{
-			Timeout: 5 * time.Second,
+			Timeout: timeout,
 		},
 		baseURL: bu,
 	}, nil
