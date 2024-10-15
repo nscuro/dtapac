@@ -9,7 +9,7 @@ require (
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/invopop/jsonschema v0.8.0
 	github.com/peterbourgon/ff/v3 v3.4.0
-	github.com/prometheus/client_golang v1.20.4
+	github.com/prometheus/client_golang v1.20.5
 	github.com/rs/zerolog v1.33.0
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.33.0
