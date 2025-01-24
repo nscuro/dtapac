@@ -29,9 +29,33 @@ func handleDTNotification(dtClient *dtrack.Client, auditChan chan<- any, auditor
 		switch subject := n.Subject.(type) {
 		case *notification.NewVulnerabilitySubject:
 			for i := range subject.AffectedProjects {
+
+				project := resolveProject(subject.AffectedProjects[i], dtClient, logger)
+				component := resolveComponent(subject.Component, dtClient, logger)
+
+				components, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Component], error) {
+					return dtClient.Component.GetAll(context.Background(), project.UUID, po)
+				})
+				if err != nil {
+					logger.Error().Err(err).Str("project", project.UUID.String()).Msg("failed to query components")
+					continue
+				}
+
+				found := false
+				for _ , comp := range components {
+					if comp.UUID == component.UUID {
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					continue
+				}
+
 				finding := audit.Finding{
-					Component:     resolveComponent(subject.Component, dtClient, logger),
-					Project:       resolveProject(subject.AffectedProjects[i], dtClient, logger),
+					Component:     component,
+					Project:       project,
 					Vulnerability: resolveVulnerability(subject.Vulnerability, dtClient, logger),
 				}
 
