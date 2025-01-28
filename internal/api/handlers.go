@@ -66,43 +66,20 @@ func handleVulnerability(subject notification.NewVulnerabilitySubject, dtClient 
 	component := resolveComponent(subject.Component, dtClient, logger)
 
 	logger.Info().Str("component", component.UUID.String()).Msg("Handling notification started")
-	for i := range subject.AffectedProjects {
 
-		project := resolveProject(subject.AffectedProjects[i], dtClient, logger)
+	project := resolveProjectFromComponent(*component.Project, dtClient, logger)
 
-		components, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Component], error) {
-			return dtClient.Component.GetAll(context.Background(), project.UUID, po)
-		})
-		if err != nil {
-			logger.Error().Err(err).Str("project", project.UUID.String()).Msg("failed to query components")
-			continue
-		}
+	finding := audit.Finding{
+		Component:     component,
+		Project:       project,
+		Vulnerability: resolveVulnerability(subject.Vulnerability, dtClient, logger),
+	}
 
-		found := false
-		for _ , comp := range components {
-			if comp.UUID == component.UUID {
-				found = true
-				logger.Info().Str("project", project.UUID.String()).Msg("Found component in project")
-				break
-			}
-		}
-
-		if !found {
-			continue
-		}
-
-		finding := audit.Finding{
-			Component:     component,
-			Project:       project,
-			Vulnerability: resolveVulnerability(subject.Vulnerability, dtClient, logger),
-		}
-
-		analysisReq, auditErr := auditor.AuditFinding(context.Background(), finding)
-		if auditErr == nil && analysisReq != (dtrack.AnalysisRequest{}) {
-			auditChan <- analysisReq
-		} else if auditErr != nil {
-			logger.Error().Err(auditErr).Object("finding", finding).Msg("failed to audit finding")
-		}
+	analysisReq, auditErr := auditor.AuditFinding(context.Background(), finding)
+	if auditErr == nil && analysisReq != (dtrack.AnalysisRequest{}) {
+		auditChan <- analysisReq
+	} else if auditErr != nil {
+		logger.Error().Err(auditErr).Object("finding", finding).Msg("failed to audit finding")
 	}
 	logger.Info().Str("component", component.UUID.String()).Msg("Handling notification done")
 	
@@ -139,6 +116,18 @@ func resolveComponent(input notification.Component, dtClient *dtrack.Client, log
 			Str("component", input.UUID.String()).
 			Msg("failed to fetch component, proceeding with component from notification instead")
 		component = mapComponent(input)
+	}
+
+	return
+}
+
+func resolveProjectFromComponent(input dtrack.Project, dtClient *dtrack.Client, logger zerolog.Logger) (project dtrack.Project) {
+	project, err := dtClient.Project.Get(context.Background(), input.UUID)
+	if err != nil {
+		logger.Error().Err(err).
+			Str("project", input.UUID.String()).
+			Msg("failed to fetch project, proceeding with project from component instead")
+			project = input
 	}
 
 	return
