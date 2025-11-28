@@ -62,10 +62,18 @@ var lock sync.Mutex
 
 func handleVulnerability(subject notification.NewVulnerabilitySubject, dtClient *dtrack.Client, auditChan chan<- any, auditor audit.Auditor, logger zerolog.Logger) {
 	lock.Lock()
+	defer lock.Unlock()
 
 	component := resolveComponent(subject.Component, dtClient, logger)
 
 	logger.Info().Str("component", component.UUID.String()).Msg("Handling notification started")
+
+	if component.Project == nil {
+		logger.Error().
+			Str("component", component.UUID.String()).
+			Msg("cannot audit finding: component has no project reference")
+		return
+	}
 
 	project := resolveProjectFromComponent(*component.Project, dtClient, logger)
 
@@ -82,10 +90,7 @@ func handleVulnerability(subject notification.NewVulnerabilitySubject, dtClient 
 		logger.Error().Err(auditErr).Object("finding", finding).Msg("failed to audit finding")
 	}
 	logger.Info().Str("component", component.UUID.String()).Msg("Handling notification done")
-	
-	lock.Unlock()
 }
-
 
 func handleOPAStatus(statusChan chan<- opa.Status) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
@@ -127,7 +132,7 @@ func resolveProjectFromComponent(input dtrack.Project, dtClient *dtrack.Client, 
 		logger.Error().Err(err).
 			Str("project", input.UUID.String()).
 			Msg("failed to fetch project, proceeding with project from component instead")
-			project = input
+		project = input
 	}
 
 	return
