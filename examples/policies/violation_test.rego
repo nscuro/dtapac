@@ -1,13 +1,13 @@
 package dtapac.violation
 
 # Verify that an empty object is returned when no rule matches the given input.
-test_analysis_nomatch {
+test_analysis_nomatch if {
     res := analysis with input as {}
     count(res) == 0
 }
 
 # Verify that license policy violations are suppressed for 3rd party projects.
-test_thirdparty_license_violations {
+test_thirdparty_license_violations if {
     res := analysis with input as {
         "project": {
             "tags": [
