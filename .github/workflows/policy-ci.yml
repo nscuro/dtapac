@@ -17,11 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Setup OPA
-      uses: open-policy-agent/setup-opa@34a30e8a924d1b03ce2cf7abe97250bbb1f332b5 # v2.2.0
+      uses: open-policy-agent/setup-opa@950f159a49aa91f9323f36f1de81c7f6b5de9576 # v2.3.0
       with:
         version: latest
     - name: Checkout Repository
-      uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
     - name: Check
       run: >
         opa check ./examples/policies
@@ -38,14 +38,14 @@ jobs:
     - test
     steps:
     - name: Setup OPA
-      uses: open-policy-agent/setup-opa@34a30e8a924d1b03ce2cf7abe97250bbb1f332b5 # v2.2.0
+      uses: open-policy-agent/setup-opa@950f159a49aa91f9323f36f1de81c7f6b5de9576 # v2.3.0
       with:
         version: latest
     - name: Checkout Repository
-      uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
     - name: Build Bundle
       run: opa build -o ./bundle.tar.gz -r ${{ github.sha }} ./examples/policies
-    - uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v4
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: policy-bundle
         path: ./bundle.tar.gz
