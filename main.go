@@ -45,6 +45,7 @@ func main() {
 	fs.BoolVar(&opts.dryRun, "dry-run", false, "Only log analyses but don't apply them")
 	fs.StringVar(&opts.logLevel, "log-level", zerolog.LevelInfoValue, "Log level")
 	fs.BoolVar(&opts.logJSON, "log-json", false, "Output log in JSON format")
+	fs.BoolVar(&opts.oneShot, "one-shot", false, "Analyze portfolio once and then exit")
 
 	cmd := ffcli.Command{
 		Name:       "dtapac",
@@ -83,6 +84,7 @@ type options struct {
 	dryRun              bool
 	logLevel            string
 	logJSON             bool
+	oneShot             bool
 }
 
 func exec(ctx context.Context, opts options) error {
@@ -133,6 +135,24 @@ func exec(ctx context.Context, opts options) error {
 	applier.SetDryRun(opts.dryRun)
 
 	eg, egCtx := errgroup.WithContext(ctx)
+
+	if opts.oneShot {
+		logger.Info().Msg("starting one shot mode")
+		triggerChannel := make(chan struct{}, 1)
+		eg.Go(func() error {
+			return applier.Start(ctx, portfolioAnalyzer.AuditResultChan())
+		})
+
+		eg.Go(func() error {
+			return portfolioAnalyzer.Start(ctx, triggerChannel)
+		})
+
+		triggerChannel <- struct{}{}
+		close(triggerChannel)
+
+		return eg.Wait()
+	}
+
 	eg.Go(apiServer.Start)
 	eg.Go(func() error {
 		return bundleWatcher.Start(egCtx)
