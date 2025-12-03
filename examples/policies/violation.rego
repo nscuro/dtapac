@@ -2,7 +2,7 @@ package dtapac.violation
 
 default analysis = {}
 
-analysis = res {
+analysis = res if {
 	# The security team is tracking 3rd party projects in their Dependency-Track instance,
 	# but doesn't want to get overwhelmed with violations for software that is out of their
 	# control.
