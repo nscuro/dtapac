@@ -2,7 +2,7 @@ package dtapac.finding
 
 default analysis = {}
 
-analysis = res {
+analysis = res if {
 	# Suppress all vulnerabilities matching a specific pattern.
 	# In this case, OSS Index changed its naming scheme for their own
 	# vulnerabilities, effectively making the old vulns obsolete.
@@ -15,7 +15,7 @@ analysis = res {
 		"details": "Legacy OSS Index vulnerability, see https://ossindex.sonatype.org/updates-notice.",
 		"suppress": true,
 	}
-} else = res {
+} else = res if {
 	# Suppress duplicate vulnerabilities.
 	# This can happen when different sources report the same vulnerability
 	# under different vulnerability identifiers. Utilize a mapping to be able
@@ -32,7 +32,7 @@ analysis = res {
 		"details": sprintf("Duplicate of %s.", [duplicatedVuln]),
 		"suppress": true,
 	}
-} else = res {
+} else = res if {
 	# Suppress false positives for a specific component.
 
 	input.component.group == "org.apache.camel"
@@ -44,7 +44,7 @@ analysis = res {
 		"details": "Affects camel-xmljson, but not camel-jetty9.",
 		"suppress": true,
 	}
-} else = res {
+} else = res if {
 	# Suppress all vulnerabilities in h2 for a selection of specific projects.
 	# These projects are using h2 only in unit tests and the devs convinced
 	# the security team that ignoring vulns in it is acceptable.
@@ -59,7 +59,7 @@ analysis = res {
 		"details": "h2 is only used in unit tests.",
 		"suppress": true,
 	}
-} else = res {
+} else = res if {
 	# The security team got PTSD from multiple log4shell incidents
 	# and they're not willing to take any risks anymore.
 
