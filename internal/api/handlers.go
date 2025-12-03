@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
-	"github.com/DependencyTrack/client-go"
+	dtrack "github.com/DependencyTrack/client-go"
 	"github.com/DependencyTrack/client-go/notification"
 	"github.com/rs/zerolog"
 
@@ -28,20 +29,9 @@ func handleDTNotification(dtClient *dtrack.Client, auditChan chan<- any, auditor
 
 		switch subject := n.Subject.(type) {
 		case *notification.NewVulnerabilitySubject:
-			for i := range subject.AffectedProjects {
-				finding := audit.Finding{
-					Component:     resolveComponent(subject.Component, dtClient, logger),
-					Project:       resolveProject(subject.AffectedProjects[i], dtClient, logger),
-					Vulnerability: resolveVulnerability(subject.Vulnerability, dtClient, logger),
-				}
+			logger.Info().Str("content", n.Content).Msg("Received notification")
+			go handleVulnerability(*subject, dtClient, auditChan, auditor, logger)
 
-				analysisReq, auditErr := auditor.AuditFinding(context.Background(), finding)
-				if auditErr == nil && analysisReq != (dtrack.AnalysisRequest{}) {
-					auditChan <- analysisReq
-				} else if auditErr != nil {
-					logger.Error().Err(auditErr).Object("finding", finding).Msg("failed to audit finding")
-				}
-			}
 		case *notification.PolicyViolationSubject:
 			violation := audit.Violation{
 				Component:       resolveComponent(subject.Component, dtClient, logger),
@@ -67,6 +57,35 @@ func handleDTNotification(dtClient *dtrack.Client, auditChan chan<- any, auditor
 		rw.WriteHeader(http.StatusAccepted)
 	}
 }
+
+var lock sync.Mutex
+
+func handleVulnerability(subject notification.NewVulnerabilitySubject, dtClient *dtrack.Client, auditChan chan<- any, auditor audit.Auditor, logger zerolog.Logger) {
+	lock.Lock()
+
+	component := resolveComponent(subject.Component, dtClient, logger)
+
+	logger.Info().Str("component", component.UUID.String()).Msg("Handling notification started")
+
+	project := resolveProjectFromComponent(*component.Project, dtClient, logger)
+
+	finding := audit.Finding{
+		Component:     component,
+		Project:       project,
+		Vulnerability: resolveVulnerability(subject.Vulnerability, dtClient, logger),
+	}
+
+	analysisReq, auditErr := auditor.AuditFinding(context.Background(), finding)
+	if auditErr == nil && analysisReq != (dtrack.AnalysisRequest{}) {
+		auditChan <- analysisReq
+	} else if auditErr != nil {
+		logger.Error().Err(auditErr).Object("finding", finding).Msg("failed to audit finding")
+	}
+	logger.Info().Str("component", component.UUID.String()).Msg("Handling notification done")
+	
+	lock.Unlock()
+}
+
 
 func handleOPAStatus(statusChan chan<- opa.Status) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
@@ -97,6 +116,18 @@ func resolveComponent(input notification.Component, dtClient *dtrack.Client, log
 			Str("component", input.UUID.String()).
 			Msg("failed to fetch component, proceeding with component from notification instead")
 		component = mapComponent(input)
+	}
+
+	return
+}
+
+func resolveProjectFromComponent(input dtrack.Project, dtClient *dtrack.Client, logger zerolog.Logger) (project dtrack.Project) {
+	project, err := dtClient.Project.Get(context.Background(), input.UUID)
+	if err != nil {
+		logger.Error().Err(err).
+			Str("project", input.UUID.String()).
+			Msg("failed to fetch project, proceeding with project from component instead")
+			project = input
 	}
 
 	return
