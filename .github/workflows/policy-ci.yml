@@ -21,7 +21,7 @@ jobs:
       with:
         version: latest
     - name: Checkout Repository
-      uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
     - name: Check
       run: >
         opa check ./examples/policies
@@ -42,7 +42,7 @@ jobs:
       with:
         version: latest
     - name: Checkout Repository
-      uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
     - name: Build Bundle
       run: opa build -o ./bundle.tar.gz -r ${{ github.sha }} ./examples/policies
     - uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v4
