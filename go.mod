@@ -13,7 +13,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.33.0
-	golang.org/x/sync v0.8.0
+	golang.org/x/sync v0.18.0
 )
 
 require (
