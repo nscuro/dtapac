@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -26,6 +27,17 @@ import (
 	"github.com/nscuro/dtapac/internal/audit"
 	"github.com/nscuro/dtapac/internal/opa"
 )
+
+type stringSlice []string
+
+func (s *stringSlice) String() string {
+	return strings.Join(*s, ",")
+}
+
+func (s *stringSlice) Set(value string) error {
+	*s = append(*s, value)
+	return nil
+}
 
 func main() {
 	fs := flag.NewFlagSet("dtapac", flag.ContinueOnError)
@@ -46,6 +58,7 @@ func main() {
 	fs.StringVar(&opts.logLevel, "log-level", zerolog.LevelInfoValue, "Log level")
 	fs.BoolVar(&opts.logJSON, "log-json", false, "Output log in JSON format")
 	fs.BoolVar(&opts.oneShot, "one-shot", false, "Analyze portfolio once and then exit")
+	fs.Var(&opts.filterTags, "filter-tag", "Filter portfolio analysis by project tag; does not affect webhooks (can be repeated)")
 
 	cmd := ffcli.Command{
 		Name:       "dtapac",
@@ -53,6 +66,7 @@ func main() {
 		LongHelp:   `Audit Dependency-Track findings and policy violations via policy as code.`,
 		Options: []ff.Option{
 			ff.WithEnvVarNoPrefix(),
+			ff.WithEnvVarSplit(","),
 			ff.WithConfigFileFlag("config"),
 			ff.WithConfigFileParser(ffyaml.Parser),
 			ff.WithAllowMissingConfigFile(true),
@@ -85,6 +99,7 @@ type options struct {
 	logLevel            string
 	logJSON             bool
 	oneShot             bool
+	filterTags          stringSlice
 }
 
 func exec(ctx context.Context, opts options) error {
@@ -126,7 +141,7 @@ func exec(ctx context.Context, opts options) error {
 		return fmt.Errorf("failed to setup bundle watcher: %w", err)
 	}
 
-	portfolioAnalyzer, err := analysis.NewPortfolioAnalyzer(dtClient, auditor, serviceLogger("portfolioAnalyzer", logger))
+	portfolioAnalyzer, err := analysis.NewPortfolioAnalyzer(dtClient, auditor, serviceLogger("portfolioAnalyzer", logger), opts.filterTags)
 	if err != nil {
 		return fmt.Errorf("failed to setup portfolio analyzer: %w", err)
 	}
@@ -135,6 +150,10 @@ func exec(ctx context.Context, opts options) error {
 	applier.SetDryRun(opts.dryRun)
 
 	eg, egCtx := errgroup.WithContext(ctx)
+
+	if len(opts.filterTags) > 0 {
+		logger.Info().Strs("tags", opts.filterTags).Msg("portfolio analysis will be filtered by tags")
+	}
 
 	if opts.oneShot {
 		logger.Info().Msg("starting one shot mode")
