@@ -119,6 +119,14 @@ sequenceDiagram
 This makes it possible to have new policies applied to the entire portfolio shortly after publishing them, without the
 need to restart any service or edit files on any server.
 
+### Portfolio Analysis Filters
+
+The `-filter-tag` flag filters portfolio analysis only. It applies to:
+- One-shot mode (`--one-shot`)
+- Bundle-update triggered scans
+
+**It does not affect webhook-triggered analyses** - notifications from Dependency-Track are always processed regardless of these filters.
+
 ### Shortcomings
 
 Some limitations of *dtapac* that you should be aware of before using it:
@@ -140,11 +148,15 @@ FLAGS
   -config ...                 Path to config file
   -dry-run=false              Only log analyses but don't apply them
   -dtrack-apikey ...          Dependency-Track API key
+  -dtrack-timeout ...         Dependency-Track request timeout
   -dtrack-url ...             Dependency-Track API server URL
+  -filter-tag ...             Filter portfolio analysis by project tag (can be repeated)
   -finding-policy-path ...    Policy path for finding analysis
   -host 0.0.0.0               Host to listen on
   -log-json=false             Output log in JSON format
   -log-level info             Log level
+  -one-shot=false             Analyze portfolio once and then exit
+  -opa-timeout ...            OPA request timeout
   -opa-url ...                Open Policy Agent URL
   -port 8080                  Port to listen on
   -violation-policy-path ...  Policy path for violation analysis
