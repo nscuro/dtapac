@@ -10,6 +10,8 @@ github.com/DependencyTrack/client-go v0.13.0 h1:w2TvudrBbgBtS2oMbisfo9Av4rJnS1g9
 github.com/DependencyTrack/client-go v0.13.0/go.mod h1:XLZnOksOs56Svq+K4xmBkN8U97gpP7r1BkhCc/xA8Iw=
 github.com/DependencyTrack/client-go v0.17.0 h1:d5pm2nGmh/TEhmnuS5LY0LvdOHTNXwE3L/32b2IcU9o=
 github.com/DependencyTrack/client-go v0.17.0/go.mod h1:T5iPG+foFcv6Bn5bTNbjywbmm+gwku4I1MuQWA77sR8=
+github.com/DependencyTrack/client-go v0.18.0 h1:HXOUuqKaxIIiksYzJTM6ltuqebxjUW0kFSbPsGSWX1Q=
+github.com/DependencyTrack/client-go v0.18.0/go.mod h1:T5iPG+foFcv6Bn5bTNbjywbmm+gwku4I1MuQWA77sR8=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
