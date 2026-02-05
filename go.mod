@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	github.com/DependencyTrack/client-go v0.18.0
-	github.com/go-chi/chi/v5 v5.2.4
+	github.com/go-chi/chi/v5 v5.2.5
 	github.com/google/uuid v1.6.0
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/invopop/jsonschema v0.8.0
