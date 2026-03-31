@@ -124,9 +124,21 @@ func (a *Applier) applyAnalysis(ctx context.Context, analysisReq dtrack.Analysis
 	}
 
 	if a.dryRun {
-		a.logger.Info().
-			Interface("analysis", analysisReq).
-			Msg("DRY RUN - would apply analysis")
+		logEvent := a.logger.Info().
+			Interface("analysis", analysisReq)
+
+		if existingAnalysis != nil {
+			logEvent.Dict("existingAnalysis", zerolog.Dict().
+				Str("analysisState", string(existingAnalysis.State)).
+				Str("analysisJustification", string(existingAnalysis.Justification)).
+				Str("analysisResponse", string(existingAnalysis.Response)).
+				Str("analysisDetails", existingAnalysis.Details).
+				Bool("isSuppressed", existingAnalysis.Suppressed))
+		} else {
+			logEvent.Interface("existingAnalysis", existingAnalysis)
+		}
+
+		logEvent.Msg("DRY RUN - would apply analysis")
 		return nil
 	}
 

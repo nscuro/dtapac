@@ -7,3 +7,6 @@ violation-policy-path: /dtapac/violation
 log-level: debug
 log-json: true
 dry-run: true
+# filter-tag:
+#   - production
+#   - staging

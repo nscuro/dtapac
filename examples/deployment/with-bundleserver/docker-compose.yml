@@ -1,8 +1,6 @@
-version: "3"
-
 services:
   dtrack:
-    image: dependencytrack/bundled:4.10.1
+    image: dependencytrack/bundled:4.13.6
     ports:
     - "127.0.0.1:8080:8080"
     restart: unless-stopped
@@ -22,10 +20,12 @@ services:
     restart: unless-stopped
 
   opa:
-    image: openpolicyagent/opa:0.61.0
+    image: openpolicyagent/opa:1.12.1
     command:
     - run
     - --server
+    - --addr
+    - :8181
     # (Periodically) pull bundle from nginx
     - --set=services.bundleserver.url=http://nginx
     - --set=bundles.dtapac.service=bundleserver
@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 
   nginx:
-    image: nginx:1.25.3-alpine
+    image: nginx:1.29.4-alpine
     volumes:
     - "../../bundles:/usr/share/nginx/html/bundles:ro"
     restart: unless-stopped

@@ -1,13 +1,13 @@
 package dtapac.finding
 
 # Verify that an empty object is returned when no rule matches the given input.
-test_analysis_nomatch {
+test_analysis_nomatch if {
     res := analysis with input as {}
     count(res) == 0
 }
 
 # Verify that legacy OSS Index vulnerabilities will be suppressed.
-test_ossindex_legacy {
+test_ossindex_legacy if {
     res := analysis with input as {
         "vulnerability": {
             "source": "OSSINDEX",
@@ -22,7 +22,7 @@ test_ossindex_legacy {
 }
 
 # Verify that duplicate vulnerabilities will be suppressed.
-test_duplicates {
+test_duplicates if {
     res := analysis with input as {
         "vulnerability": {
             "vulnId": "GHSA-r695-7vr9-jgc2"
@@ -35,7 +35,7 @@ test_duplicates {
     res.suppress
 }
 
-test_fluxcapacitor_h2 {
+test_fluxcapacitor_h2 if {
     res := analysis with input as {
         "component": {
             "group": "com.h2database",
@@ -54,7 +54,7 @@ test_fluxcapacitor_h2 {
 }
 
 # Verify that false positives for the camel-jetty9 component will be suppressed.
-test_analysis_cameljetty9 {
+test_analysis_cameljetty9 if {
     res := analysis with input as {
         "component": {
             "group": "org.apache.camel",
@@ -73,7 +73,7 @@ test_analysis_cameljetty9 {
 }
 
 # Verify that log4shell occurrences are flagged as exploitable.
-test_log4shell {
+test_log4shell if {
     res := analysis with input as {
         "component": {
             "name": "log4j-core"

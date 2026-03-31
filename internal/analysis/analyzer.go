@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DependencyTrack/client-go"
+	dtrack "github.com/DependencyTrack/client-go"
 	"github.com/rs/zerolog"
 
 	"github.com/nscuro/dtapac/internal/audit"
@@ -15,9 +15,10 @@ type PortfolioAnalyzer struct {
 	auditor         audit.Auditor
 	auditResultChan chan any
 	logger          zerolog.Logger
+	filterTags      []string
 }
 
-func NewPortfolioAnalyzer(dtClient *dtrack.Client, auditor audit.Auditor, logger zerolog.Logger) (*PortfolioAnalyzer, error) {
+func NewPortfolioAnalyzer(dtClient *dtrack.Client, auditor audit.Auditor, logger zerolog.Logger, filterTags []string) (*PortfolioAnalyzer, error) {
 	if dtClient == nil {
 		return nil, fmt.Errorf("no dependency-track client provided")
 	}
@@ -30,6 +31,7 @@ func NewPortfolioAnalyzer(dtClient *dtrack.Client, auditor audit.Auditor, logger
 		auditor:         auditor,
 		auditResultChan: make(chan any, 1),
 		logger:          logger,
+		filterTags:      filterTags,
 	}, nil
 }
 
@@ -59,14 +61,57 @@ func (pa PortfolioAnalyzer) Start(ctx context.Context, triggerChan <-chan struct
 	return nil
 }
 
-func (pa PortfolioAnalyzer) analyzePortfolio(ctx context.Context) error {
-	pa.logger.Debug().Msg("fetching projects")
-	projects, err := dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Project], error) {
+func (pa PortfolioAnalyzer) fetchAllProjects(ctx context.Context) ([]dtrack.Project, error) {
+	pa.logger.Debug().Msg("fetching all projects")
+	return dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Project], error) {
 		return pa.dtClient.Project.GetAll(ctx, po)
 	})
+}
+
+func (pa PortfolioAnalyzer) fetchProjectsByTag(ctx context.Context, tag string) ([]dtrack.Project, error) {
+	pa.logger.Debug().Str("tag", tag).Msg("fetching projects by tag")
+	return dtrack.FetchAll(func(po dtrack.PageOptions) (dtrack.Page[dtrack.Project], error) {
+		return pa.dtClient.Project.GetAllByTag(ctx, tag, false, false, po)
+	})
+}
+
+func (pa PortfolioAnalyzer) fetchProjectsByTags(ctx context.Context, tags []string) ([]dtrack.Project, error) {
+	pa.logger.Debug().Strs("tags", tags).Msg("fetching projects filtered by tags")
+
+	seen := make(map[string]struct{})
+	var projects []dtrack.Project
+
+	for _, tag := range tags {
+		tagProjects, err := pa.fetchProjectsByTag(ctx, tag)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch projects by tag %q: %w", tag, err)
+		}
+
+		for _, project := range tagProjects {
+			uuid := project.UUID.String()
+			if _, exists := seen[uuid]; !exists {
+				seen[uuid] = struct{}{}
+				projects = append(projects, project)
+			}
+		}
+	}
+
+	return projects, nil
+}
+
+func (pa PortfolioAnalyzer) fetchProjects(ctx context.Context) ([]dtrack.Project, error) {
+	if len(pa.filterTags) > 0 {
+		return pa.fetchProjectsByTags(ctx, pa.filterTags)
+	}
+	return pa.fetchAllProjects(ctx)
+}
+
+func (pa PortfolioAnalyzer) analyzePortfolio(ctx context.Context) error {
+	projects, err := pa.fetchProjects(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch projects: %w", err)
 	}
+	pa.logger.Info().Int("count", len(projects)).Msg("fetched projects for analysis")
 
 	for i, project := range projects {
 		err = pa.analyzeFindings(ctx, projects[i])
