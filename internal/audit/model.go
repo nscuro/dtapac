@@ -104,5 +104,6 @@ func mapVulnerability(fv dtrack.FindingVulnerability) dtrack.Vulnerability {
 		EPSSScore:                   fv.EPSSScore,
 		EPSSPercentile:              fv.EPSSPercentile,
 		CWEs:                        fv.CWEs,
+		Aliases:                     fv.Aliases,
 	}
 }
