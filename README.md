@@ -9,6 +9,14 @@
 > Consider this project to be a proof-of-concept. It is not very sophisticated, but it gets the job done.
 > Try it in a test environment first. **Do not skip this step, do not run it in production without prior testing**!
 
+> [!TIP]
+> As of version 5, Dependency-Track ships with a built-in mechanism for automatically auditing vulnerability findings
+> called [Vulnerability Policies](https://dependencytrack.github.io/docs/next/concepts/vulnerability-policies/).
+> It supports dynamic conditions using the [Common Expression Language](https://cel.dev/) and applies results
+> atomically with the findings themselves, so decisions such as suppressions apply immediately.
+>
+> I highly recommend you consider that instead of *dtapac*, as it is both more powerful *and* more reliable.
+
 ## Introduction
 
 [Dependency-Track](https://dependencytrack.org/) offers a fairly sophisticated auditing workflow for vulnerabilities 
