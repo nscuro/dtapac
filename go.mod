@@ -3,7 +3,7 @@ module github.com/nscuro/dtapac
 go 1.25
 
 require (
-	github.com/DependencyTrack/client-go v0.19.0
+	github.com/DependencyTrack/client-go v0.19.1
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/google/uuid v1.6.0
 	github.com/iancoleman/orderedmap v0.3.0
@@ -85,3 +85,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/DependencyTrack/client-go => github.com/rerkcp/client-go v0.19.1
