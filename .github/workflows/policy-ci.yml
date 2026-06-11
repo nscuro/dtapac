@@ -45,7 +45,7 @@ jobs:
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
     - name: Build Bundle
       run: opa build -o ./bundle.tar.gz -r ${{ github.sha }} ./examples/policies
-    - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
         name: policy-bundle
         path: ./bundle.tar.gz
